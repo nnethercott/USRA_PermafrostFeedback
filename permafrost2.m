@@ -1,5 +1,5 @@
 %% Parameters
-m_total = 1300.*10.^12;                                                     %estimated carbon stocks in permafrost
+m_total = 1095.*10.^12;                                                     %estimated carbon stocks in permafrost
 A = integral(@(x) (6371.*1000).^2.*2.*pi.*sin(x), 0, pi/6);                 %Arctic surface area N60 deg (3.4168e+13 m^2)
 Z_L = 15;                                                                   %max depth of surface slab
 cdensity = @(z) m_total./(A.*Z_L);                                          %density function for carbon storage, uniform
@@ -41,6 +41,7 @@ m_totalCH4 = m_lossCH4.*A %mass per unit area times total arctic area
 new_concentrations = concentration([m_totalCO2 m_totalCH4], [407.4 1875])
 
 %%
+rateCH4(1.08)
 
 function r2 = Q10(r1, t1, t2, sensitivity)
     r2 = r1.*(sensitivity.^((t2-t1)./10));
@@ -55,34 +56,33 @@ current function uses Alternative #2 methodology
 %}
 
 %Constants
-gammaA = 0.014; %fraction of carbon in active pool
-gammaS = 0.20; %fraction of carbon in slow pool
-fms = 0.57; %mass fraction of carbon in mineral soils
-fo = 0.22; %mass fraction of carbon in organic soils 
-fa = 0.07; %mass fraction of carbon in arctic river deltas
-fy = 0.14; %mass fraction of carbon in yedoma
-sigma_yms = 0.79; %fraction of yedoma deposits in mineral soils 
-sigma_yo = 0.21; %fraction of yedoma deposits in organic soils
-omega_yan = 0.33; %fraction of anaerobic decomposition in yedoma 
+gammaA_ms = 0.013; %fraction of carbon in active pool, mineral 
+gammaS_ms = 0.107; %fraction of carbon in slow pool, mineral 
+gammaA_o = 0.015; %fraction of carbon in active pool, organic 
+gammaS_o = 0.293; %fraction of carbon in slow pool, organic
+fms = 0.708; %mass fraction of carbon in mineral soils
+fo = 0.292; %mass fraction of carbon in organic soils  
 A_msan = 0.05; %Area fraction in mineral with anaerobic decomp
 A_oan = 0.8; %Area fraction in organic with anaerobic decomp
 chi_ms = 0.25; %oxidation fraction mineral under anaerobic
 chi_o = 0.6; %oxidation fraction organic under anaerobic
 R_ana = 0.1; %ratio of decomp speeds anaerobic:aerobic 
-C_tot = 1300*10.^12; %total carbon stocks in permafrost 
+C_tot = 1035*10.^12; %total carbon stocks in permafrost 
 Q10_a = 1.5; %Q10 sensitivity aerobic
 Q10_an = 3; %Q10 sensitivity anaerobic 
-k_a = 1./0.37; %decomp rate active
-k_s = 1./7.46; %decomp rate slow
-k_e = 0.01; %decomp ebullition CHANGE LATER 
+k_a_ms = 1./((0.48+0.21)./2); %decomp rate active, mineral soils
+k_s_ms = 1./((8.76+6.42)./2); %decomp rate slow, mineral soils
+k_a_o = 1./0.41; %decom rate active, organic soils 
+k_s_o = 1./7.21; %decomp rate slow, organic soils 
 
 %define rate scaling functions
 T = tau.*273.15-273.15;
-ratescale_a = @(T) Q10(k_a, 5, T, Q10_a);
-ratescale_s = @(T) Q10(k_s, 5, T, Q10_a);
+ratescale_a_ms = @(T) Q10(k_a_ms, 5, T, Q10_a);
+ratescale_s_ms = @(T) Q10(k_s_ms, 5, T, Q10_a);
+ratescale_a_o = @(T) Q10(k_a_o, 5, T, Q10_a);
+ratescale_s_o = @(T) Q10(k_s_o, 5, T, Q10_a);
 
-rate_co2 = (gammaA*ratescale_a(T) + gammaS.*ratescale_s(T)).*((fms.*(1-A_msan)+ fo.*(1-A_oan) + fy.*(1-omega_yan)) + R_ana.*(fms.*A_msan.*chi_ms + fo.*A_oan.*chi_o));
-
+rate_co2 = (gammaA_ms*ratescale_a_ms(T) + gammaS_ms.*ratescale_s_ms(T)).*fms.*((1-A_msan)+ R_ana.*A_msan.*chi_ms)+(gammaA_o*ratescale_a_o(T) + gammaS_o.*ratescale_s_o(T)).*fo.*((1-A_oan)+ R_ana.*A_oan.*chi_o);
 r = rate_co2;
 end
 function r = rateCH4(tau)
@@ -95,33 +95,33 @@ current function uses Alternative #2 methodology
 %}
 
 %Constants
-gammaA = 0.014; %fraction of carbon in active pool
-gammaS = 0.20; %fraction of carbon in slow pool
-fms = 0.57; %mass fraction of carbon in mineral soils
-fo = 0.22; %mass fraction of carbon in organic soils 
-fa = 0.07; %mass fraction of carbon in arctic river deltas
-fy = 0.14; %mass fraction of carbon in yedoma
-sigma_yms = 0.79; %fraction of yedoma deposits in mineral soils 
-sigma_yo = 0.21; %fraction of yedoma deposits in organic soils
-omega_yan = 0.33; %fraction of anaerobic decomposition in yedoma 
+gammaA_ms = 0.013; %fraction of carbon in active pool, mineral 
+gammaS_ms = 0.107; %fraction of carbon in slow pool, mineral 
+gammaA_o = 0.015; %fraction of carbon in active pool, organic 
+gammaS_o = 0.293; %fraction of carbon in slow pool, organic
+fms = 0.708; %mass fraction of carbon in mineral soils
+fo = 0.292; %mass fraction of carbon in organic soils  
 A_msan = 0.05; %Area fraction in mineral with anaerobic decomp
 A_oan = 0.8; %Area fraction in organic with anaerobic decomp
 chi_ms = 0.25; %oxidation fraction mineral under anaerobic
 chi_o = 0.6; %oxidation fraction organic under anaerobic
 R_ana = 0.1; %ratio of decomp speeds anaerobic:aerobic 
-C_tot = 1300*10.^12; %total carbon stocks in permafrost 
+C_tot = 1035*10.^12; %total carbon stocks in permafrost 
 Q10_a = 1.5; %Q10 sensitivity aerobic
 Q10_an = 3; %Q10 sensitivity anaerobic 
-k_a = 1./0.37; %decomp rate active
-k_s = 1./7.46; %decomp rate slow
-k_e = 0.01; %decomp ebullition CHANGE LATER 
+k_a_ms = 1./((0.48+0.21)./2); %decomp rate active, mineral soils
+k_s_ms = 1./((8.76+6.42)./2); %decomp rate slow, mineral soils
+k_a_o = 1./0.41; %decom rate active, organic soils 
+k_s_o = 1./7.21; %decomp rate slow, organic soils 
 
 %define rate scaling functions
 T = tau.*273.15-273.15;
-ratescale_a = @(T) Q10(k_a, 5, T, Q10_a);
-ratescale_s = @(T) Q10(k_s, 5, T, Q10_a);
+ratescale_a_ms = @(T) Q10(k_a_ms, 5, T, Q10_a);
+ratescale_s_ms = @(T) Q10(k_s_ms, 5, T, Q10_a);
+ratescale_a_o = @(T) Q10(k_a_o, 5, T, Q10_a);
+ratescale_s_o = @(T) Q10(k_s_o, 5, T, Q10_a);
 
-rate_ch4 = R_ana.*(gammaA*ratescale_a(T) + gammaS.*ratescale_s(T)).*(fms.*A_msan.*(1-chi_ms)+ fo.*A_oan.*(1-chi_o))+ k_e.*(fa + fy.*omega_yan);
+rate_ch4 = (gammaA_ms*ratescale_a_ms(T) + gammaS_ms.*ratescale_s_ms(T)).*R_ana.*(fms.*A_msan.*(1-chi_ms)) + (gammaA_o*ratescale_a_o(T) + gammaS_o.*ratescale_s_o(T)).*R_ana.*(fo.*A_oan.*(1-chi_o));
 
 r = rate_ch4;
 end
