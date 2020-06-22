@@ -6,7 +6,7 @@ cdensity = @(z) m_total./(A.*Z_L);                                          %den
 
 options = optimset('Display','off');                                        %fsolve options
 %% Comments
-%{
+%{ 
  - if the surface temperature is smaller than the constant temperature at Z_L,
 the temperature gradient equation makes is such that temperatures increase
 as you move deeper.  This implies the depth where temperature is zero is
