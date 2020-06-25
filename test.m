@@ -22,7 +22,7 @@ levels for FO, FA, Q, mu, delta and nu -- nu being concentration of CH4
 
 %% Solve EBM and extend results to Arctic 
 
-x0 = 1.03; %initial point for fsolve to start at; 1< warm bias, 1> cold bias
+x0 = 1; %initial point for fsolve to start at; 1< warm bias, 1> cold bias
 
 %equilibrium temp under modern, globally-averaged forcings 
 eq = fsolve(@(tau) eqtemp(tau, 9.75, 104, 201.73, 407.4, 0.6, 1875),x0, options) %equilibrium solution to EBM
@@ -34,14 +34,16 @@ m_lossCO2_1 = integral(@(z) rateCO2(eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6
 m_lossCH4_1 = integral(@(z) rateCH4(eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875, z)).*cdensity(z), Z_0, 0, 'ArrayValued', true); %carbon released in unit area as CH4
 
 %compute total HR-NPP to determine C released
-m_totalCO2_1 = (m_lossCO2_1-npp(407.4,eqair)).*A %mass per unit area times total arctic area 
+m_totalCO2_1 = (m_lossCO2_1).*A %mass per unit area times total arctic area 
 m_totalCH4_1 = (m_lossCH4_1).*A %mass per unit area times total arctic area 
+sink1 = npp(407.4,eqair).*A*0.46
 
-new_concentrations_1 = concentration([m_totalCO2_1 m_totalCH4_1], [407.4 1875])
+m_netCO2_1 = m_totalCO2_1-sink1;
+
+new_concentrations_1 = concentration([m_netCO2_1 m_totalCH4_1], [407.4 1875])
 %% Integrate over latitudes method
-
 %define latitude dependent insolation function from McGehee
-relinsol = @(x,y) 2.*sqrt(1-(sqrt(1-sin(y).^2).*sin(0.4101524).*cos(x)-sin(y).*cos(0.4101524)).^2)/pi.^2;
+relinsol = @(x,y) 2.*sqrt(1 - (sqrt(1 - sin(y).^2).*sin(0.4101524).*cos(x) - sin(y).*cos(0.4101524)).^2)/pi.^2;
 coeff = @(y) integral(@(x) relinsol(x,y), 0, 2.*pi);
 insol = @(y) 343.*coeff(y);
 
@@ -54,15 +56,63 @@ Z = @(y) fsolve(@(z) eqtempgrad(eqsf(y), 9.75, 104, insol(y), 407.4, 0.6, 1875, 
 mCO2 = @(y) integral(@(z) rateCO2(eqtempgrad(eqsf(y), 9.75, 104, insol(y), 407.4, 0.6, 1875, z)).*cdensity(z), Z(y), 0,'ArrayValued', true);
 mCH4 = @(y) integral(@(z) rateCH4(eqtempgrad(eqsf(y), 9.75, 104, insol(y), 407.4, 0.6, 1875, z)).*cdensity(z), Z(y), 0,'ArrayValued', true);
 
-%integrate over latitudes
-m_totalCO2_2 = integral(@(y) 2.*pi.*(6371.*1000).^2.*cos(y).*(mCO2(y)-npp(407.4,eqaf(y))), pi/3, pi/2)
+%integrate mass over latitudes
+m_totalCO2_2 = integral(@(y) 2.*pi.*(6371.*1000).^2.*cos(y).*mCO2(y), pi/3, pi/2)
 m_totalCH4_2 = integral(@(y) 2.*pi.*(6371.*1000).^2.*cos(y).*mCH4(y), pi/3, pi/2)
 
-new_concentrations_2 = concentration([m_totalCO2_2 m_totalCH4_2], [407.4 1875])
+%SHOULD BE THE RIGHT INTEGRAL FOR SINK BUT DOESN'T WORK 
+SINK2 = 0.46.*integral(@(y) 2.*pi.*(6371.*1000).^2.*cos(y).*npp(407.4,eqaf(y)), pi/3, pi/2)
+
+%my version of uptake integral
+rads=linspace(pi/3,pi/2,300);
+dy=(pi/2-pi/3)/300;
+sink2=0;
+for i=1:300
+    sink2=sink2+2.*pi.*(6371.*1000).^2.*cos(rads(i)).*npp(407.4,eqaf(rads(i)))*dy;
+end 
+sink2=sink2*0.46
+
+m_netCO2_2 = m_totalCO2_2-sink2;
+
+new_concentrations_2 = concentration([m_netCO2_2 m_totalCH4_2], [407.4 1875])
+%% GRAPHS FOR SENSITIVITIES
+tiledlayout(2,1)
+%CO2 dependence 
+nexttile
+x = linspace(0,1500,1501);
+x=x+388.35;
+y=[];
+for i=1:length(x)
+    y(i)=npp(x(i),1.0304);
+end
+x=x-388.35;
+y=y-0.02;
+plot(x,y)
+title('CO2 dependence of NPP');
+ylabel('Increase in NPP [kgCm^-2y^-1]');
+xlabel('Delta CO2 [ppm]');
+xlim([0 1500]);
+ylim([0 0.350]);
+
+%Temperature dependence 
+nexttile
+x = linspace(0,10,100);
+x=x+8.3038;
+y=[];
+for i=1:length(x)
+    y(i)=npp(388.35,(x(i)+273.15)./273.15);
+end
+x=x-8.3038;
+y=y-0.02;
+plot(x,y)
+title('Air temperature dependence of NPP');
+ylabel('Increase in NPP [kgCm^-2y^-1]');
+xlabel('Delta T [K]');
+xlim([0 10]);
+ylim([0 0.35]);
+
 %%
-eq = fsolve(@(tau) eqtemp(tau, 9.75, 104, 201.73, 407.4, 0.6, 1875),1, options) %equilibrium solution to EBM
-eqair = eqairtemp(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875)
-npp(407.4,eqair)
+npp(407.4,1.03)
 
 function n = npp(mu,air_tau)
 %returns npp in kgCm^-2yr^-1
@@ -70,25 +120,19 @@ function n = npp(mu,air_tau)
 mu2010 = 388.35;
 npp2010_low = 0.3766234;    %kgCm^-2yr^-1
 npp2010_high = 0.4736842;
-npp_test = 0.0805;
+npp_test = 20;
 musensitivity_low = (0.09)./1000; %kgCm^-2yr^-1ppmv^-1
 musensitivity_high = (0.58)./1000; %kgCm^-2yr^-1ppmv^-1
 TEM6_tempsensitivity = (25.26)./1000; %kgCm^-2yr^-1K^-1
 
 delta_mu = mu-mu2010;
-delta_K = (air_tau-1.0304).*273.15; 
+delta_T = air_tau-1.0304;
 
-%assume for time being that ocean uptake negligible in arctic 
-if delta_mu>500 & 1.054>air_tau>1
-    n = (npp_test+0.225 + TEM6_tempsensitivity.*delta_K)*0.4741;
-elseif delta_mu>500 & 1.054<air_tau
-    n = (npp_test+0.225 + 0.25)*0.4741;
-elseif delta_mu<500 & air_tau>1
-    n = (npp_test+musensitivity_low*delta_mu + TEM6_tempsensitivity*delta_K)*0.4741;
-elseif air_tau<=1
-    n = 0;
+n = npp_test+(127.844.*log(0.0062*delta_mu+1))-37383.1.*(delta_T).*(delta_T-0.1464);
+if n<0
+    n=0;
 end
-
+n=n./1000;
 end 
 
 function r2 = Q10(r1, t1, t2, sensitivity)
@@ -255,7 +299,7 @@ G_W2 = k_W.*rho_wsat./gamma;                    % nondimensional        % atmosp
 wvinteg1 = @(w) 1./w.*exp(G_W1.*(w-1)./w);      % nondimensional        % temperature-dependent part of Clausius-Clapeyron equation integrated over troposphere
 eta_W1 = 1 - exp(-delta.*G_W2.*integral(wvinteg1, tau-(gamma.*Z_P), tau));   % nondimensional        % absorption due to water vapour     
 
-eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl)*(1-eta_ch);   % nondimensional        % total atmospheric longwave absorption
+eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl).*(1-eta_ch);   % nondimensional        % total atmospheric longwave absorption
 
 F = tau_ZL - tau + (1).*(f_O - (1-betaconst).*f_C + (1-a).*q.*(1 - 0.2324 - 0.1212) - (1-betaconst.*eta).*tau.^4 + betaconst.*(f_A + 0.2324.*q))./H2;
 end
