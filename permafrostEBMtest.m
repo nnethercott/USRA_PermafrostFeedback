@@ -5,23 +5,32 @@ Z_L = 15;                                                                   %max
 cdensity = @(z) m_total./(A.*Z_L);                                          %density function for carbon storage, uniform
 
 options = optimset('Display','off');                                        %fsolve options
+%% Comments
+%{ 
+- the values (9.75, 104, 201.73, 407.4, 0.6, 1875) correspond to modern day
+levels for FO, FA, Q, mu, delta and nu -- nu being concentration of CH4
+
+- rate equation for methane does not yet include sink terms 
+
+%}
+
 %% Solve EBM and extend results to Arctic 
 
-x0 = 0.9; %initial point for fsolve to start at; 1< warm bias, 1> cold bias
+x0 = 0.9; %initial point for fsolve to start at; 1< warm bias, 1> cold bias 
 
 %equilibrium temp under modern, globally-averaged forcings 
 eq = fsolve(@(tau) eqtemp(tau, 9.75, 104, 201.73, 407.4, 0.6, 1875),x0, options) %equilibrium solution to EBM
-eqair = eqairtemp(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875)
+eqair = eqairtemp(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875) %equilibrium atmosphere temp 
 Z_0 = fsolve(@(z) eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875, z)-1,0, options); %depth where temperature is zero 
 
-%compute HR
+%compute HR 
 m_lossCO2_1 = integral(@(z) rateCO2(eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875, z)).*cdensity(z), Z_0, 0, 'ArrayValued', true); %carbon released in unit area as CO2
 m_lossCH4_1 = integral(@(z) rateCH4(eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875, z)).*cdensity(z), Z_0, 0, 'ArrayValued', true); %carbon released in unit area as CH4
 
-%compute total HR-NPP to determine C released
+%compute total (HR-NPP) to determine C released
 m_totalCO2_1 = (m_lossCO2_1).*A %mass per unit area times total arctic area 
 m_totalCH4_1 = (m_lossCH4_1).*A %mass per unit area times total arctic area 
-sink1 = npp(407.4,eqair).*A
+sink1 = npp(407.4,eqair).*A %total carbon sink due to photosynthesis
 
 m_netCO2_1 = m_totalCO2_1-sink1
 
@@ -46,83 +55,24 @@ m_totalCO2_2 = integral(@(y) 2.*pi.*(6371.*1000).^2.*cos(y).*mCO2(y), pi/3, pi/2
 m_totalCH4_2 = integral(@(y) 2.*pi.*(6371.*1000).^2.*cos(y).*mCH4(y), pi/3, pi/2)
 
 %SHOULD BE THE RIGHT INTEGRAL FOR SINK BUT DOESN'T WORK ALL THE TIME 
-SINK2 = integral(@(y) 2.*pi.*(6371.*1000).^2.*cos(y).*npp(407.4,eqaf(y)), pi/3, pi/2)
+SINK2 = integral(@(y) 2.*pi.*(6371.*1000).^2.*cos(y).*npp(407.4,eqaf(y)), pi/3, pi/2) %total carbon sink due to photosynthesis
 
-%my version of uptake integral
+%my version of uptake integral to make sure SINK2 is right 
 rads=linspace(pi/3,pi/2,300);
 dy=(pi/2-pi/3)/300;
 sink2=0;
 for i=1:300
     sink2=sink2+2.*pi.*(6371.*1000).^2.*cos(rads(i)).*npp(407.4,eqaf(rads(i)))*dy;
 end 
-sink2=sink2
+sink2 %total carbon sink due to photosynthesis
 
 m_netCO2_2 = m_totalCO2_2-sink2
 
 new_concentrations_2 = concentration([m_netCO2_2 m_totalCH4_2], [407.4 1875])
-%% GRAPHS FOR SENSITIVITIES
-tiledlayout(2,1)
-%CO2 dependence 
-nexttile
-x = linspace(0,1500,1501);
-x=x+388.35;
-y=[];
-for i=1:length(x)
-    y(i)=npp(x(i),1.0304);
-end
-x=x-388.35;
-y=y-0.02;
-plot(x,y)
-title('CO2 dependence of NPP');
-ylabel('Increase in NPP [kgCm^-2y^-1]');
-xlabel('Delta CO2 [ppm]');
-xlim([0 1500]);
-ylim([0 0.350]);
-
-%Temperature dependence 
-nexttile
-x = linspace(0,10,100);
-x=x+8.3038;
-y=[];
-for i=1:length(x)
-    y(i)=npp(388.35,(x(i)+273.15)./273.15);
-end
-x=x-8.3038;
-y=y-0.02;
-plot(x,y)
-title('Air temperature dependence of NPP');
-ylabel('Increase in NPP [kgCm^-2y^-1]');
-xlabel('Delta T [K]');
-xlim([0 10]);
-ylim([0 0.35]);
 
 %%
-npp(407.4,1.03)
-
-function n = npp(mu,air_tau)
-%returns npp in kgCm^-2yr^-1
-%most numbers from McGuire, 2010 concentration from online 
-mu2010 = 388.35;
-npp2010_low = 0.3766234;    %kgCm^-2yr^-1
-npp2010_high = 0.4736842;
-npp_test = 20;
-musensitivity_low = (0.09)./1000; %kgCm^-2yr^-1ppmv^-1
-musensitivity_high = (0.58)./1000; %kgCm^-2yr^-1ppmv^-1
-TEM6_tempsensitivity = (25.26)./1000; %kgCm^-2yr^-1K^-1
-
-delta_mu = mu-mu2010;
-delta_T = air_tau-1.0304;
-
-n = npp_test+(127.844.*log(0.0062*delta_mu+1))-37383.1.*(delta_T).*(delta_T-0.1464);
-if n<0
-    n=0;
-end
-p_SA = 16.*10.^6.*1000^2;
-Arctic_SA = 3.4168e+13;
-pArea_fraction = p_SA./Arctic_SA;
-
-n=(n.*pArea_fraction)./1000;
-end 
+rateCO2(1.018)
+rateCH4(1.018)
 
 function r2 = Q10(r1, t1, t2, sensitivity)
     r2 = r1.*(sensitivity.^((t2-t1)./10));
@@ -215,13 +165,6 @@ end
 
 r = rate_ch4;
 end
-
-%{
-tempgrad function recomputes everything in eqtemp but using the
-equilibrium temperature.  Both functions can be combined but its more
-legible for the time being to keep them apart. These functions are based on
-the heat equation solution with surface flux as a boundary condition 
-%}
 function F = eqtemp(tau, F_O, F_A, Q, mu, delta, nu)
 % modified EBM
 
@@ -486,3 +429,23 @@ ch4ratio = (M./MCH4).*(mch4new./M_atmnew);
 c(1) = co2ratio.*10.^6; %fraction to ppm
 c(2) = ch4ratio.*10.^9; %fraction to ppb
 end
+function n = npp(mu,air_tau)
+%returns npp in kgCm^-2yr^-1
+%most numbers from McGuire, 2010 concentration from online 
+mu2010 = 388.35;
+npp2010_low = 0.3766234;    %kgCm^-2yr^-1
+npp2010_high = 0.4736842;
+npp_test = 20;
+musensitivity_low = (0.09)./1000; %kgCm^-2yr^-1ppmv^-1
+musensitivity_high = (0.58)./1000; %kgCm^-2yr^-1ppmv^-1
+TEM6_tempsensitivity = (25.26)./1000; %kgCm^-2yr^-1K^-1
+
+delta_mu = mu-mu2010;
+delta_T = air_tau-1.0304;
+
+n = npp_test+(127.844.*log(0.0062*delta_mu+1))-37383.1.*(delta_T).*(delta_T-0.1464);
+if n<0
+    n=0;
+end
+n=n./1000;
+end 

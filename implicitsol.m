@@ -1,103 +1,117 @@
-%% Parameters
-m_total = 1095.*10.^12;                                                     %estimated carbon stocks in permafrost
-A = integral(@(x) (6371.*1000).^2.*2.*pi.*sin(x), 0, pi/6);                 %Arctic surface area N60 deg (3.4168e+13 m^2)
-Z_L = 15;                                                                   %max depth of surface slab
-cdensity = @(z) m_total./(A.*Z_L);                                          %density function for carbon storage, uniform
+modified = fsolve(@(t) ebm(t, 9.75, 104, 201.73, 360, 0.6, 1200, 1.095.*10.^15), 1)
+raw = fsolve(@(t) eqtemp(t, 9.75, 104, 201.73, 360, 0.6, 1200), 1)
 
-options = optimset('Display','off');                                        %fsolve options
-%% Solve EBM and extend results to Arctic 
+%% FUNCTIONs
 
-x0 = 0.9; %initial point for fsolve to start at; 1< warm bias, 1> cold bias
+function F = ebm(tau, F_O, F_A, Q, mu, delta, nu, mass)
+% modified EBM
 
-%equilibrium temp under modern, globally-averaged forcings 
-eq = fsolve(@(tau) eqtemp(tau, 9.75, 104, 201.73, 407.4, 0.6, 1875),x0, options) %equilibrium solution to EBM
-eqair = eqairtemp(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875)
-Z_0 = fsolve(@(z) eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875, z)-1,0, options); %depth where temperature is zero 
+% CONSTANTS
+T_R = 273.15;                                   % K                     % reference temperature, equal to 0 Celcius
+betaconst = 0.63;                               % nondimensional        % fraction of atmospheric irradiance hitting surface           
+sigma = 5.670367*10^-8;                         % W/(m^2K^4)            % Stefan-Boltzmann constant 
+omega = 0.01;                                   % nondimensional        % albedo switch function smoothness
+Gamma = 6.49*10^-3;                             % K/m                   % standard ICAO lapse rate for the troposphere
+gamma = Gamma/T_R;                              % 1/m                   % scaled lapse rate for non-dimensional system
+k_C = 0.0694;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for carbon dioxide
+k_W = 0.05905;                                  % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
+k_ch4 = 1.4022;                                 % m^2/kg                % absorption cross-section per unit mass of atmosphere for methane 
+Z_P = 9000;                                     % m                     % troposphere height      
+L_v = 2.2558*10^6;                              % m^2/s^2               % latent heat of vapourization for water
+R = 8.3144598;                                  % J/(mol K)             % universal gas constant
+R_W = 461.4;                                    % m^2/(s^2 K)           % specific gas constant of water vapour
+alpha_w = 0.08;                                 % nondimensional        % warm (ocean) albedo
+alpha_c = 0.7;                                  % nondimensional        % cold (ice) albedo                                 % W/m^2                 % average incoming solar radiation above 60N
+q = Q/(sigma*T_R^4);                            % nondimensional        % scaled incoming solar radiation at 70N
+c_P = 1004;                                     % J/(K kg)              % specific heat capacity of dry atmopshere at T_R
+C_LH = 1.0*10^-3;                               % nondimensional        % latent heat bulk exchange coefficient 
+C_SH = 1.0*10^-3;                               % nondimensional        % sensible heat bulk exchange coefficient
+U_r = 4;                                        % m/s                   % average horizontal wind speed
+z_r = 600;                                      % m                     % average height of planetary boundary layer
+P_sat = 611.2;                                  % Pa = kg/(m s^2)       % saturated vapour pressure at T_R
+rho_wsat = 4.849*10^-3;                         % kg/m^3                % saturated vapour density at T_R
+P_0 = 101325.00;                                % Pa                    % pressure at surface 
+M =  0.0289644;                                 % kg/mol                % molecular weight of dry air
+G_W1 = L_v/(R_W*T_R);                           % nondimensional        % atmospheric water vapour absorption coefficient 1
 
-%compute HR
-m_lossCO2_1 = integral(@(z) rateCO2(eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875, z)).*cdensity(z), Z_0, 0, 'ArrayValued', true); %carbon released in unit area as CO2
-m_lossCH4_1 = integral(@(z) rateCH4(eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875, z)).*cdensity(z), Z_0, 0, 'ArrayValued', true); %carbon released in unit area as CH4
+%%%% new terms for permafrost %%%%
+k_L = 2;                                        % W m^-1 K^-1           % thermal conductivity 
+Z_L = 15;                                       % m                     % surface slab depth 
+H2 = k_L./(Z_L.*sigma.*T_R^3);                  % nondimensional 
+T_ZL = -2.35;                                   % C                     % ref temp at bottom of slab    
+tau_ZL = (T_ZL+273.17)./273.15;                 % nondimensional        % nondimensional ref temp at bottom of slab
+A_tot = 3.4168e+13;
+A_p = 1.6000e+13;
+p = A_p./A_tot;
+rho_C = mass./(A_p.*Z_L);
 
-%compute total HR-NPP to determine C released
-m_totalCO2_1 = (m_lossCO2_1).*A %mass per unit area times total arctic area 
-m_totalCH4_1 = (m_lossCH4_1).*A %mass per unit area times total arctic area 
-sink1 = npp(407.4,eqair).*A
 
-m_netCO2_1 = m_totalCO2_1-sink1
+% FUNCTIONS
+T_S = tau*T_R;                             
+% density of atmosphere (kg/m^3) at the top of PBL as a function of surface temperature
+rho = P_0.*M./(R.*(T_S-Gamma.*z_r));                        
+% vertical sensible heat transport (W/m^2) due to turbulent flux in the PBL
+SH = c_P.*rho.*C_SH.*U_r.*(Gamma.*z_r);
+% vertical latent heat transport (W/m^2) due to turbulent flux in the PBL
+LE = L_v.*C_LH.*U_r./(R_W.*(T_S-Gamma.*z_r)).*P_sat.*(exp(G_W1.*(T_S - T_R)./T_S) - delta.*exp(G_W1.*(T_S - Gamma.*z_r -T_R)./(T_S - Gamma.*z_r)));
+% combined vertical turbulent heat transport in the PBL
+F_C = LE + SH;
 
-new_concentrations_1 = concentration([m_netCO2_1 m_totalCH4_1], [407.4 1875])
-%% Integrate over latitudes method
-%define latitude dependent insolation function from McGehee
-relinsol = @(x,y) 2.*sqrt(1 - (sqrt(1 - sin(y).^2).*sin(0.4101524).*cos(x) - sin(y).*cos(0.4101524)).^2)/pi.^2;
-coeff = @(y) integral(@(x) relinsol(x,y), 0, 2.*pi);
-insol = @(y) 343.*coeff(y);
+f_A  = F_A./(sigma.*T_R.^4);                    % nondimensional        % scaled horizontal atmospheric heat transport
+f_O  = F_O./(sigma.*T_R.^4);                    % nondimensional        % scaled horizontal aoceanic heat transport
+f_C = F_C./(sigma.*T_R.^4);                     % nondimensional        % scaled vertical turbulent heat flux heat transport
 
-%function to determine equilibrium temp and zero temp depth
-eqsf = @(y) fsolve(@(tau) eqtemp(tau, 9.75, 104, insol(y), 407.4, 0.6, 1875),x0, options);
-eqaf = @(y) eqairtemp(eqsf(y), 9.75, 104, insol(y), 407.4, 0.6, 1875);
-Z = @(y) fsolve(@(z) eqtempgrad(eqsf(y), 9.75, 104, insol(y), 407.4, 0.6, 1875, z)-1,0, options);
+% albedo switch function (nondimensional)
+a = 1./2.*((alpha_w + alpha_c)+(alpha_w-alpha_c).*tanh((tau-1)./omega));    
 
-%functions for thaw mass at a latitude
-mCO2 = @(y) integral(@(z) rateCO2(eqtempgrad(eqsf(y), 9.75, 104, insol(y), 407.4, 0.6, 1875, z)).*cdensity(z), Z(y), 0,'ArrayValued', true);
-mCH4 = @(y) integral(@(z) rateCH4(eqtempgrad(eqsf(y), 9.75, 104, insol(y), 407.4, 0.6, 1875, z)).*cdensity(z), Z(y), 0,'ArrayValued', true);
+%modified eta_cl
+eta_Cl = 0.3736;                               
+G_c = 1.52./(10.^6).*k_C.*1.03.*10.^4;         
+eta_C1 = 1 - exp(-G_c.*mu);                           
+G_ch = 0.554./(10.^9).*k_ch4.*1.03.*10.^4;
+eta_ch = 1 - exp(-G_ch.*nu);
+G_W2 = k_W.*rho_wsat./gamma;                   
+wvinteg1 = @(w) 1./w.*exp(G_W1.*(w-1)./w);     
+eta_W1 = 1 - exp(-delta.*G_W2.*integral(wvinteg1, tau-(gamma.*Z_P), tau));   
+eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl).*(1-eta_ch);   
 
-%integrate mass over latitudes
-m_totalCO2_2 = integral(@(y) 2.*pi.*(6371.*1000).^2.*cos(y).*mCO2(y), pi/3, pi/2)
-m_totalCH4_2 = integral(@(y) 2.*pi.*(6371.*1000).^2.*cos(y).*mCH4(y), pi/3, pi/2)
+%permafrost 
+T = @(z) tau_ZL + (z+1).*(f_O - (1-betaconst).*f_C + (1-a).*q.*(1 - 0.2324 - 0.1212) - (1-betaconst.*eta).*tau.^4 + betaconst.*(f_A + 0.2324.*q))./H2;
+Z_0 = fsolve(@(z) T(z)-1,0).*Z_L
+eqair = ((1/0.9).*(f_A + f_C + 0.2324.*q + eta.*tau.^4)).^(0.25)
 
-%SHOULD BE THE RIGHT INTEGRAL FOR SINK BUT DOESN'T WORK ALL THE TIME 
-SINK2 = integral(@(y) 2.*pi.*(6371.*1000).^2.*cos(y).*npp(407.4,eqaf(y)), pi/3, pi/2)
-
-%my version of uptake integral
-rads=linspace(pi/3,pi/2,300);
-dy=(pi/2-pi/3)/300;
-sink2=0;
-for i=1:300
-    sink2=sink2+2.*pi.*(6371.*1000).^2.*cos(rads(i)).*npp(407.4,eqaf(rads(i)))*dy;
-end 
-sink2=sink2
-
-m_netCO2_2 = m_totalCO2_2-sink2
-
-new_concentrations_2 = concentration([m_netCO2_2 m_totalCH4_2], [407.4 1875])
-%% GRAPHS FOR SENSITIVITIES
-tiledlayout(2,1)
-%CO2 dependence 
-nexttile
-x = linspace(0,1500,1501);
-x=x+388.35;
-y=[];
-for i=1:length(x)
-    y(i)=npp(x(i),1.0304);
+if Z_0>-Z_L & Z_0<=0
+    m_lossCO2 = integral(@(z) p.*rateCO2(T(z)).*rho_C, Z_0, 0, 'ArrayValued', true);
+    m_lossCH4 = integral(@(z) p.*rateCH4(T(z)).*rho_C, Z_0, 0, 'ArrayValued', true);
+else 
+    m_lossCO2 = 0;
+    m_lossCH4 = 0;
 end
-x=x-388.35;
-y=y-0.02;
-plot(x,y)
-title('CO2 dependence of NPP');
-ylabel('Increase in NPP [kgCm^-2y^-1]');
-xlabel('Delta CO2 [ppm]');
-xlim([0 1500]);
-ylim([0 0.350]);
 
-%Temperature dependence 
-nexttile
-x = linspace(0,10,100);
-x=x+8.3038;
-y=[];
-for i=1:length(x)
-    y(i)=npp(388.35,(x(i)+273.15)./273.15);
+totalCO2_loss = (m_lossCO2).*A_tot;
+totalCH4_loss = (m_lossCH4).*A_tot;
+sink = npp(mu,eqair).*A_tot
+m_netCO2 = totalCO2_loss-sink
+m_netCH4 = totalCH4_loss
+
+new_concentrations = concentration([m_netCO2 m_netCH4], [mu nu]);
+mu = new_concentrations(1)
+nu = new_concentrations(2)
+
+%recompute eta
+eta_Cl = 0.3736;                               
+G_c = 1.52./(10.^6).*k_C.*1.03.*10.^4;         
+eta_C1 = 1 - exp(-G_c.*mu);                           
+G_ch = 0.554./(10.^9).*k_ch4.*1.03.*10.^4;
+eta_ch = 1 - exp(-G_ch.*nu);
+G_W2 = k_W.*rho_wsat./gamma;                   
+wvinteg1 = @(w) 1./w.*exp(G_W1.*(w-1)./w);     
+eta_W1 = 1 - exp(-delta.*G_W2.*integral(wvinteg1, tau-(gamma.*Z_P), tau));   
+eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl).*(1-eta_ch);   
+
+%final step 
+F = tau_ZL - tau + (1).*(f_O - (1-betaconst).*f_C + (1-a).*q.*(1 - 0.2324 - 0.1212) - (1-betaconst.*eta).*tau.^4 + betaconst.*(f_A + 0.2324.*q))./H2;
 end
-x=x-8.3038;
-y=y-0.02;
-plot(x,y)
-title('Air temperature dependence of NPP');
-ylabel('Increase in NPP [kgCm^-2y^-1]');
-xlabel('Delta T [K]');
-xlim([0 10]);
-ylim([0 0.35]);
-
-%%
-npp(407.4,1.03)
 
 function n = npp(mu,air_tau)
 %returns npp in kgCm^-2yr^-1
@@ -123,7 +137,6 @@ pArea_fraction = p_SA./Arctic_SA;
 
 n=(n.*pArea_fraction)./1000;
 end 
-
 function r2 = Q10(r1, t1, t2, sensitivity)
     r2 = r1.*(sensitivity.^((t2-t1)./10));
 end
@@ -163,13 +176,20 @@ ratescale_s_ms = @(T) Q10(k_s_ms, 5, T, Q10_a);
 ratescale_a_o = @(T) Q10(k_a_o, 5, T, Q10_a);
 ratescale_s_o = @(T) Q10(k_s_o, 5, T, Q10_a);
 
-if tau>1
-    rate_co2 = (gammaA_ms.*ratescale_a_ms(T) + gammaS_ms.*ratescale_s_ms(T)).*fms.*((1-A_msan)+ R_ana.*A_msan.*chi_ms)+(gammaA_o.*ratescale_a_o(T) + gammaS_o.*ratescale_s_o(T)).*fo.*((1-A_oan)+ R_ana.*A_oan.*chi_o);
-else 
-    rate_co2 = 0;
-end
 
-r = rate_co2;
+rate_co2 = @(t) (gammaA_ms.*ratescale_a_ms(t) + gammaS_ms.*ratescale_s_ms(t)).*fms.*((1-A_msan)+ R_ana.*A_msan.*chi_ms)+(gammaA_o.*ratescale_a_o(t) + gammaS_o.*ratescale_s_o(t)).*fo.*((1-A_oan)+ R_ana.*A_oan.*chi_o);
+%{
+months = linspace(0,11,12);
+for i=1:12
+    if T+5.*sin(months(i)*2*pi./11) > 0
+        rates(i) = rate_co2(T+5.*sin(months(i)*2*pi./11));
+    else 
+        rates(i) = 0;
+    end
+end 
+r = mean(rates);
+%}
+r = rate_co2(T);
 end
 function r = rateCH4(tau)
 %{
@@ -207,21 +227,21 @@ ratescale_s_ms = @(T) Q10(k_s_ms, 5, T, Q10_a);
 ratescale_a_o = @(T) Q10(k_a_o, 5, T, Q10_a);
 ratescale_s_o = @(T) Q10(k_s_o, 5, T, Q10_a);
 
-if tau>1
-    rate_ch4 = (gammaA_ms.*ratescale_a_ms(T) + gammaS_ms.*ratescale_s_ms(T)).*R_ana.*(fms.*A_msan.*(1-chi_ms)) + (gammaA_o.*ratescale_a_o(T) + gammaS_o.*ratescale_s_o(T)).*R_ana.*(fo.*A_oan.*(1-chi_o));
-else 
-    rate_ch4 = 0;
-end 
-
-r = rate_ch4;
-end
+rate_ch4 = @(t) (gammaA_ms.*ratescale_a_ms(t) + gammaS_ms.*ratescale_s_ms(t)).*R_ana.*(fms.*A_msan.*(1-chi_ms)) + (gammaA_o.*ratescale_a_o(t) + gammaS_o.*ratescale_s_o(t)).*R_ana.*(fo.*A_oan.*(1-chi_o));
 
 %{
-tempgrad function recomputes everything in eqtemp but using the
-equilibrium temperature.  Both functions can be combined but its more
-legible for the time being to keep them apart. These functions are based on
-the heat equation solution with surface flux as a boundary condition 
+months = linspace(0,11,12);
+for i=1:12
+    if T+5.*sin(months(i)*2*pi./11) > 0
+        rates(i) = rate_ch4(T+5.*sin(months(i)*2*pi./11));
+    else 
+        rates(i) = 0;
+    end
+end 
+r = mean(rates);
 %}
+r = rate_ch4(T);
+end
 function F = eqtemp(tau, F_O, F_A, Q, mu, delta, nu)
 % modified EBM
 
@@ -361,7 +381,9 @@ eta_W1 = 1 - exp(-delta.*G_W2.*integral(wvinteg1, eqtau-(gamma.*Z_P), eqtau));  
 
 eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl)*(1-eta_ch);   % nondimensional        % total atmospheric longwave absorption
 
+
 T = tau_ZL + (zeta+1).*(f_O - (1-betaconst).*f_C + (1-a).*q.*(1 - 0.2324 - 0.1212) - (1-betaconst.*eta).*eqtau.^4 + betaconst.*(f_A + 0.2324.*q))./H2;
+
 end
 function T = eqairtemp(eqtau, F_O, F_A, Q, mu, delta, nu)
 %describes temperature as a function of depth, z (m), at equilibrium
