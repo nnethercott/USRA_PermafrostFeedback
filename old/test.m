@@ -7,12 +7,11 @@ cdensity = @(z) m_total./(A.*Z_L);                                          %den
 options = optimset('Display','off');                                        %fsolve options
 %% Solve EBM and extend results to Arctic 
 
-x0 = 0.9; %initial point for fsolve to start at; 1< warm bias, 1> cold bias
+x0 = 1.03; %initial point for fsolve to start at; 1< warm bias, 1> cold bias
 
 %equilibrium temp under modern, globally-averaged forcings 
 eq = fsolve(@(tau) eqtemp(tau, 9.75, 104, 201.73, 407.4, 0.6, 1875),x0, options) %equilibrium solution to EBM
-eqair = eqairtemp(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875)
-Z_0 = fsolve(@(z) eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875, z)-1,0, options); %depth where temperature is zero 
+Z_0 = fsolve(@(z) eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875, z)-1,0, options) %depth where temperature is zero 
 
 %compute HR
 m_lossCO2_1 = integral(@(z) rateCO2(eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6, 1875, z)).*cdensity(z), Z_0, 0, 'ArrayValued', true); %carbon released in unit area as CO2
@@ -21,9 +20,8 @@ m_lossCH4_1 = integral(@(z) rateCH4(eqtempgrad(eq, 9.75, 104, 201.73, 407.4, 0.6
 %compute total HR-NPP to determine C released
 m_totalCO2_1 = (m_lossCO2_1).*A %mass per unit area times total arctic area 
 m_totalCH4_1 = (m_lossCH4_1).*A %mass per unit area times total arctic area 
-sink1 = npp(407.4,eqair).*A
 
-m_netCO2_1 = m_totalCO2_1-sink1
+m_netCO2_1 = m_totalCO2_1
 
 new_concentrations_1 = concentration([m_netCO2_1 m_totalCH4_1], [407.4 1875])
 %% Integrate over latitudes method
@@ -129,7 +127,8 @@ function r2 = Q10(r1, t1, t2, sensitivity)
 end
 function r = rateCO2(tau)
 %{
-Function for scaling rate of decomposition according to Q10 sensitivity
+Function for scaling rate of heterotrophic respiration(HR) according to Q10 
+sensitivity.
 Args: tau - nondimensional temperature 
 Returns: r - decomp rate CO2
 
@@ -148,7 +147,6 @@ A_oan = 0.8; %Area fraction in organic with anaerobic decomp
 chi_ms = 0.25; %oxidation fraction mineral under anaerobic
 chi_o = 0.6; %oxidation fraction organic under anaerobic
 R_ana = 0.1; %ratio of decomp speeds anaerobic:aerobic 
-C_tot = 1035*10.^12; %total carbon stocks in permafrost 
 Q10_a = 1.5; %Q10 sensitivity aerobic
 Q10_an = 3; %Q10 sensitivity anaerobic 
 k_a_ms = 1./((0.48+0.21)./2); %decomp rate active, mineral soils
@@ -156,24 +154,32 @@ k_s_ms = 1./((8.76+6.42)./2); %decomp rate slow, mineral soils
 k_a_o = 1./0.41; %decom rate active, organic soils 
 k_s_o = 1./7.21; %decomp rate slow, organic soils 
 
-%define rate scaling functions
+%define rate scaling functions for all (pool,soil) pairs
 T = tau.*273.15-273.15;
 ratescale_a_ms = @(T) Q10(k_a_ms, 5, T, Q10_a);
 ratescale_s_ms = @(T) Q10(k_s_ms, 5, T, Q10_a);
 ratescale_a_o = @(T) Q10(k_a_o, 5, T, Q10_a);
 ratescale_s_o = @(T) Q10(k_s_o, 5, T, Q10_a);
 
-if tau>1
-    rate_co2 = (gammaA_ms.*ratescale_a_ms(T) + gammaS_ms.*ratescale_s_ms(T)).*fms.*((1-A_msan)+ R_ana.*A_msan.*chi_ms)+(gammaA_o.*ratescale_a_o(T) + gammaS_o.*ratescale_s_o(T)).*fo.*((1-A_oan)+ R_ana.*A_oan.*chi_o);
-else 
-    rate_co2 = 0;
-end
 
-r = rate_co2;
+rate_co2 = @(t) (gammaA_ms.*ratescale_a_ms(t) + gammaS_ms.*ratescale_s_ms(t)).*fms.*((1-A_msan)+ R_ana.*A_msan.*chi_ms)+(gammaA_o.*ratescale_a_o(t) + gammaS_o.*ratescale_s_o(t)).*fo.*((1-A_oan)+ R_ana.*A_oan.*chi_o);
+
+%account for seasonality over a year
+months = linspace(0,11,12);
+deltaT = 5;
+for i=1:12
+    if T+5.*sin(months(i)*2*pi./11) > 0
+        rates(i) = rate_co2(T+deltaT.*sin(months(i)*2*pi./11));
+    else 
+        rates(i) = 0;
+    end
+end 
+r = mean(rates);
 end
 function r = rateCH4(tau)
 %{
-Function for scaling rate of decomposition according to Q10 sensitivity
+Function for scaling rate of heterotrophic respiration (HR) according to Q10 
+sensitivity
 Args: tau - nondimensional temperature 
 Returns: r - decomp rate CH4
 
@@ -192,7 +198,6 @@ A_oan = 0.8; %Area fraction in organic with anaerobic decomp
 chi_ms = 0.25; %oxidation fraction mineral under anaerobic
 chi_o = 0.6; %oxidation fraction organic under anaerobic
 R_ana = 0.1; %ratio of decomp speeds anaerobic:aerobic 
-C_tot = 1035*10.^12; %total carbon stocks in permafrost 
 Q10_a = 1.5; %Q10 sensitivity aerobic
 Q10_an = 3; %Q10 sensitivity anaerobic 
 k_a_ms = 1./((0.48+0.21)./2); %decomp rate active, mineral soils
@@ -207,13 +212,18 @@ ratescale_s_ms = @(T) Q10(k_s_ms, 5, T, Q10_a);
 ratescale_a_o = @(T) Q10(k_a_o, 5, T, Q10_a);
 ratescale_s_o = @(T) Q10(k_s_o, 5, T, Q10_a);
 
-if tau>1
-    rate_ch4 = (gammaA_ms.*ratescale_a_ms(T) + gammaS_ms.*ratescale_s_ms(T)).*R_ana.*(fms.*A_msan.*(1-chi_ms)) + (gammaA_o.*ratescale_a_o(T) + gammaS_o.*ratescale_s_o(T)).*R_ana.*(fo.*A_oan.*(1-chi_o));
-else 
-    rate_ch4 = 0;
-end 
+rate_ch4 = @(t) (gammaA_ms.*ratescale_a_ms(t) + gammaS_ms.*ratescale_s_ms(t)).*R_ana.*fms.*A_msan.*(1-chi_ms) + (gammaA_o.*ratescale_a_o(t) + gammaS_o.*ratescale_s_o(t)).*R_ana.*fo.*A_oan.*(1-chi_o);
 
-r = rate_ch4;
+%account for seasonality over a year
+months = linspace(0,11,12);
+for i=1:12
+    if T+5.*sin(months(i)*2*pi./11) > 0
+        rates(i) = rate_ch4(T+5.*sin(months(i)*2*pi./11));
+    else 
+        rates(i) = 0;
+    end
+end 
+r = mean(rates);
 end
 
 %{

@@ -1,22 +1,4 @@
-%% ASSUMPTIONS AND COMMENTS
-%{
-- permafrost soil carbon distribution is not dependent on depth or
-latitude. Uniformly distributed at all times BUUUUTTTT...
-
-- time-independence of ocean and atmospheric heat transport 
-
-- From Kypke, FA = 107.28 (yr 1875), 104.03 (2100, RCP 2.6), 97.53 (2100,
-RCP 8.5). FO = 9.75 (yr 1875), 13.00 (2100, RCP 2.6), 19.5 (2100, RCP 8.5)
-
-- solving temperature gradient equation results in zero temp depth which is
-below our surface slab when surface temp is less than tau_ZL
-
-- ANNUALLY AVERAGED DECOMP RATES INCREASE COMPUTATION TIME. also doesnt
-make sense when integrating through soil layers.
-%}
-
-%% RCP DATA
-
+%% read rcp data
 fid = fopen('ch4.txt');
 ch4data = fscanf(fid, '%f', [736 4]);
 
@@ -30,177 +12,19 @@ CO260data = [2.78E+02	2.78E+02	2.78E+02	2.78E+02	2.78E+02	2.79E+02	2.79E+02	2.79
 CO245data = [2.78E+02	2.78E+02	2.78E+02	2.78E+02	2.78E+02	2.79E+02	2.79E+02	2.79E+02	2.79E+02	2.79E+02	2.79E+02	2.79E+02	2.80E+02	2.80E+02	2.80E+02	2.80E+02	2.80E+02	2.80E+02	2.81E+02	2.81E+02	2.81E+02	2.81E+02	2.81E+02	2.81E+02	2.81E+02	2.82E+02	2.82E+02	2.82E+02	2.82E+02	2.82E+02	2.82E+02	2.82E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.85E+02	2.85E+02	2.85E+02	2.85E+02	2.85E+02	2.85E+02	2.85E+02	2.86E+02	2.86E+02	2.86E+02	2.86E+02	2.86E+02	2.86E+02	2.87E+02	2.87E+02	2.87E+02	2.87E+02	2.87E+02	2.87E+02	2.87E+02	2.87E+02	2.88E+02	2.88E+02	2.88E+02	2.88E+02	2.88E+02	2.89E+02	2.89E+02	2.89E+02	2.90E+02	2.90E+02	2.91E+02	2.91E+02	2.92E+02	2.92E+02	2.93E+02	2.93E+02	2.93E+02	2.94E+02	2.94E+02	2.94E+02	2.94E+02	2.94E+02	2.94E+02	2.95E+02	2.95E+02	2.95E+02	2.95E+02	2.95E+02	2.95E+02	2.96E+02	2.96E+02	2.96E+02	2.96E+02	2.97E+02	2.97E+02	2.98E+02	2.98E+02	2.99E+02	2.99E+02	2.99E+02	3.00E+02	3.00E+02	3.00E+02	3.01E+02	3.01E+02	3.01E+02	3.02E+02	3.02E+02	3.02E+02	3.03E+02	3.03E+02	3.03E+02	3.04E+02	3.04E+02	3.05E+02	3.05E+02	3.05E+02	3.06E+02	3.06E+02	3.07E+02	3.07E+02	3.08E+02	3.08E+02	3.09E+02	3.09E+02	3.09E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.11E+02	3.11E+02	3.11E+02	3.12E+02	3.12E+02	3.12E+02	3.13E+02	3.14E+02	3.14E+02	3.15E+02	3.16E+02	3.16E+02	3.17E+02	3.18E+02	3.18E+02	3.19E+02	3.20E+02	3.21E+02	3.22E+02	3.23E+02	3.24E+02	3.25E+02	3.26E+02	3.27E+02	3.29E+02	3.30E+02	3.31E+02	3.32E+02	3.33E+02	3.35E+02	3.37E+02	3.38E+02	3.40E+02	3.41E+02	3.42E+02	3.44E+02	3.45E+02	3.47E+02	3.49E+02	3.51E+02	3.52E+02	3.54E+02	3.55E+02	3.56E+02	3.57E+02	3.58E+02	3.60E+02	3.61E+02	3.63E+02	3.65E+02	3.67E+02	3.69E+02	3.70E+02	3.73E+02	3.75E+02	3.77E+02	3.79E+02	3.81E+02	3.83E+02	3.85E+02	3.87E+02	3.89E+02	3.91E+02	3.93E+02	3.96E+02	3.98E+02	4.00E+02	4.02E+02	4.04E+02	4.07E+02	4.09E+02	4.11E+02	4.13E+02	4.16E+02	4.18E+02	4.20E+02	4.23E+02	4.25E+02	4.28E+02	4.30E+02	4.33E+02	4.35E+02	4.38E+02	4.40E+02	4.43E+02	4.45E+02	4.48E+02	4.50E+02	4.53E+02	4.56E+02	4.58E+02	4.61E+02	4.63E+02	4.66E+02	4.69E+02	4.71E+02	4.74E+02	4.76E+02	4.79E+02	4.81E+02	4.84E+02	4.87E+02	4.89E+02	4.92E+02	4.94E+02	4.96E+02	4.98E+02	5.01E+02	5.03E+02	5.05E+02	5.07E+02	5.09E+02	5.11E+02	5.13E+02	5.14E+02	5.16E+02	5.18E+02	5.19E+02	5.20E+02	5.22E+02	5.23E+02	5.24E+02	5.25E+02	5.27E+02	5.27E+02	5.28E+02	5.29E+02	5.30E+02	5.30E+02	5.31E+02	5.31E+02	5.31E+02	5.31E+02	5.31E+02	5.32E+02	5.32E+02	5.32E+02	5.32E+02	5.33E+02	5.33E+02	5.33E+02	5.34E+02	5.34E+02	5.35E+02	5.35E+02	5.35E+02	5.36E+02	5.36E+02	5.37E+02	5.37E+02	5.38E+02	5.38E+02	5.39E+02	5.39E+02	5.40E+02	5.40E+02	5.41E+02	5.41E+02	5.42E+02	5.42E+02	5.42E+02	5.42E+02	5.42E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02	5.43E+02];
 CO225data = [2.78E+02	2.78E+02	2.78E+02	2.78E+02	2.78E+02	2.79E+02	2.79E+02	2.79E+02	2.79E+02	2.79E+02	2.79E+02	2.79E+02	2.80E+02	2.80E+02	2.80E+02	2.80E+02	2.80E+02	2.80E+02	2.81E+02	2.81E+02	2.81E+02	2.81E+02	2.81E+02	2.81E+02	2.81E+02	2.82E+02	2.82E+02	2.82E+02	2.82E+02	2.82E+02	2.82E+02	2.82E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.83E+02	2.83E+02	2.83E+02	2.83E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.84E+02	2.85E+02	2.85E+02	2.85E+02	2.85E+02	2.85E+02	2.85E+02	2.85E+02	2.86E+02	2.86E+02	2.86E+02	2.86E+02	2.86E+02	2.86E+02	2.87E+02	2.87E+02	2.87E+02	2.87E+02	2.87E+02	2.87E+02	2.87E+02	2.87E+02	2.88E+02	2.88E+02	2.88E+02	2.88E+02	2.88E+02	2.89E+02	2.89E+02	2.89E+02	2.90E+02	2.90E+02	2.91E+02	2.91E+02	2.92E+02	2.92E+02	2.93E+02	2.93E+02	2.93E+02	2.94E+02	2.94E+02	2.94E+02	2.94E+02	2.94E+02	2.94E+02	2.95E+02	2.95E+02	2.95E+02	2.95E+02	2.95E+02	2.95E+02	2.96E+02	2.96E+02	2.96E+02	2.96E+02	2.97E+02	2.97E+02	2.98E+02	2.98E+02	2.99E+02	2.99E+02	2.99E+02	3.00E+02	3.00E+02	3.00E+02	3.01E+02	3.01E+02	3.01E+02	3.02E+02	3.02E+02	3.02E+02	3.03E+02	3.03E+02	3.03E+02	3.04E+02	3.04E+02	3.05E+02	3.05E+02	3.05E+02	3.06E+02	3.06E+02	3.07E+02	3.07E+02	3.08E+02	3.08E+02	3.09E+02	3.09E+02	3.09E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.10E+02	3.11E+02	3.11E+02	3.11E+02	3.12E+02	3.12E+02	3.12E+02	3.13E+02	3.14E+02	3.14E+02	3.15E+02	3.16E+02	3.16E+02	3.17E+02	3.18E+02	3.18E+02	3.19E+02	3.20E+02	3.21E+02	3.22E+02	3.23E+02	3.24E+02	3.25E+02	3.26E+02	3.27E+02	3.29E+02	3.30E+02	3.31E+02	3.32E+02	3.33E+02	3.35E+02	3.37E+02	3.38E+02	3.40E+02	3.41E+02	3.42E+02	3.44E+02	3.45E+02	3.47E+02	3.49E+02	3.51E+02	3.52E+02	3.54E+02	3.55E+02	3.56E+02	3.57E+02	3.58E+02	3.60E+02	3.61E+02	3.63E+02	3.65E+02	3.67E+02	3.69E+02	3.70E+02	3.73E+02	3.75E+02	3.77E+02	3.79E+02	3.81E+02	3.83E+02	3.85E+02	3.87E+02	3.89E+02	3.92E+02	3.94E+02	3.96E+02	3.98E+02	4.01E+02	4.03E+02	4.05E+02	4.08E+02	4.10E+02	4.12E+02	4.14E+02	4.17E+02	4.19E+02	4.21E+02	4.23E+02	4.24E+02	4.26E+02	4.28E+02	4.29E+02	4.31E+02	4.32E+02	4.33E+02	4.35E+02	4.36E+02	4.37E+02	4.38E+02	4.38E+02	4.39E+02	4.40E+02	4.40E+02	4.41E+02	4.41E+02	4.41E+02	4.42E+02	4.42E+02	4.42E+02	4.42E+02	4.42E+02	4.43E+02	4.43E+02	4.43E+02	4.43E+02	4.43E+02	4.43E+02	4.43E+02	4.42E+02	4.42E+02	4.42E+02	4.42E+02	4.42E+02	4.41E+02	4.41E+02	4.41E+02	4.40E+02	4.40E+02	4.40E+02	4.39E+02	4.39E+02	4.38E+02	4.37E+02	4.37E+02	4.36E+02	4.36E+02	4.35E+02	4.35E+02	4.34E+02	4.33E+02	4.33E+02	4.32E+02	4.32E+02	4.31E+02	4.31E+02	4.30E+02	4.29E+02	4.29E+02	4.28E+02	4.28E+02	4.27E+02	4.27E+02	4.26E+02	4.25E+02	4.25E+02	4.24E+02	4.24E+02	4.23E+02	4.23E+02	4.22E+02	4.22E+02	4.21E+02	4.21E+02	4.20E+02	4.20E+02	4.19E+02	4.19E+02	4.19E+02	4.18E+02	4.18E+02	4.17E+02	4.17E+02	4.16E+02	4.16E+02	4.15E+02	4.15E+02	4.14E+02	4.14E+02	4.14E+02	4.13E+02	4.13E+02	4.12E+02	4.12E+02	4.11E+02	4.11E+02	4.10E+02	4.10E+02	4.09E+02	4.09E+02	4.08E+02	4.08E+02	4.08E+02	4.07E+02	4.07E+02	4.06E+02	4.06E+02	4.05E+02	4.05E+02	4.04E+02	4.04E+02	4.04E+02	4.03E+02	4.03E+02	4.03E+02	4.02E+02	4.02E+02	4.01E+02	4.01E+02	4.01E+02	4.00E+02	4.00E+02	3.99E+02	3.99E+02	3.99E+02	3.98E+02	3.98E+02	3.98E+02	3.97E+02	3.97E+02	3.97E+02	3.96E+02	3.96E+02	3.96E+02	3.95E+02	3.95E+02	3.95E+02	3.94E+02	3.94E+02	3.94E+02	3.93E+02	3.93E+02	3.93E+02	3.92E+02	3.92E+02	3.92E+02	3.92E+02	3.91E+02	3.91E+02	3.91E+02	3.90E+02	3.90E+02	3.90E+02	3.89E+02	3.89E+02	3.89E+02	3.89E+02	3.88E+02	3.88E+02	3.88E+02	3.87E+02	3.87E+02	3.87E+02	3.86E+02	3.86E+02	3.86E+02	3.86E+02	3.85E+02	3.85E+02	3.85E+02	3.85E+02	3.84E+02	3.84E+02	3.84E+02	3.83E+02	3.83E+02	3.83E+02	3.83E+02	3.82E+02	3.82E+02	3.82E+02	3.82E+02	3.81E+02	3.81E+02	3.81E+02	3.81E+02	3.80E+02	3.80E+02	3.80E+02	3.80E+02	3.79E+02	3.79E+02	3.79E+02	3.79E+02	3.78E+02	3.78E+02	3.78E+02	3.78E+02	3.77E+02	3.77E+02	3.77E+02	3.77E+02	3.76E+02	3.76E+02	3.76E+02	3.76E+02	3.75E+02	3.75E+02	3.75E+02	3.75E+02	3.74E+02	3.74E+02	3.74E+02	3.74E+02	3.74E+02	3.73E+02	3.73E+02	3.73E+02	3.73E+02	3.72E+02	3.72E+02	3.72E+02	3.72E+02	3.71E+02	3.71E+02	3.71E+02	3.71E+02	3.70E+02	3.70E+02	3.70E+02	3.70E+02	3.70E+02	3.69E+02	3.69E+02	3.69E+02	3.69E+02	3.69E+02	3.68E+02	3.68E+02	3.68E+02	3.68E+02	3.67E+02	3.67E+02	3.67E+02	3.67E+02	3.67E+02	3.66E+02	3.66E+02	3.66E+02	3.66E+02	3.65E+02	3.65E+02	3.65E+02	3.65E+02	3.65E+02	3.64E+02	3.64E+02	3.64E+02	3.64E+02	3.64E+02	3.63E+02	3.63E+02	3.63E+02	3.63E+02	3.63E+02	3.62E+02	3.62E+02	3.62E+02	3.62E+02	3.62E+02	3.61E+02	3.61E+02	3.61E+02	3.61E+02	3.60E+02	3.60E+02	3.60E+02	3.60E+02	3.60E+02	3.60E+02	3.59E+02	3.59E+02	3.59E+02	3.59E+02	3.58E+02	3.58E+02	3.58E+02	3.58E+02	3.58E+02	3.58E+02	3.57E+02	3.57E+02	3.57E+02	3.57E+02	3.57E+02	3.56E+02	3.56E+02	3.56E+02	3.56E+02	3.56E+02	3.55E+02	3.55E+02	3.55E+02	3.55E+02	3.55E+02	3.54E+02	3.54E+02	3.54E+02	3.54E+02	3.54E+02	3.54E+02	3.53E+02	3.53E+02	3.53E+02	3.53E+02	3.53E+02	3.52E+02	3.52E+02	3.52E+02	3.52E+02	3.52E+02	3.52E+02	3.51E+02	3.51E+02	3.51E+02	3.51E+02	3.51E+02	3.50E+02	3.50E+02	3.50E+02	3.50E+02	3.50E+02	3.50E+02	3.49E+02	3.49E+02	3.49E+02	3.49E+02	3.49E+02	3.48E+02	3.48E+02	3.48E+02	3.48E+02	3.48E+02	3.48E+02	3.47E+02	3.47E+02	3.47E+02	3.47E+02	3.47E+02	3.47E+02	3.46E+02	3.46E+02	3.46E+02	3.46E+02	3.46E+02	3.46E+02	3.45E+02	3.45E+02	3.45E+02	3.45E+02	3.45E+02	3.44E+02	3.44E+02	3.44E+02	3.44E+02	3.44E+02	3.44E+02	3.44E+02	3.43E+02	3.43E+02	3.43E+02	3.43E+02	3.43E+02	3.42E+02	3.42E+02	3.42E+02	3.42E+02	3.42E+02	3.42E+02	3.42E+02	3.41E+02	3.41E+02	3.41E+02	3.41E+02	3.41E+02	3.41E+02	3.40E+02	3.40E+02	3.40E+02	3.40E+02	3.40E+02	3.40E+02	3.39E+02	3.39E+02	3.39E+02	3.39E+02	3.39E+02	3.39E+02	3.38E+02	3.38E+02	3.38E+02	3.38E+02	3.38E+02	3.38E+02	3.37E+02	3.37E+02	3.37E+02	3.37E+02	3.37E+02	3.37E+02	3.37E+02	3.36E+02	3.36E+02	3.36E+02	3.36E+02	3.36E+02	3.36E+02	3.35E+02	3.35E+02	3.35E+02	3.35E+02	3.35E+02	3.35E+02	3.35E+02	3.34E+02	3.34E+02	3.34E+02	3.34E+02	3.34E+02	3.34E+02	3.33E+02	3.33E+02	3.33E+02	3.33E+02	3.33E+02	3.33E+02	3.33E+02	3.32E+02	3.32E+02	3.32E+02	3.32E+02	3.32E+02	3.32E+02	3.32E+02	3.31E+02	3.31E+02	3.31E+02	3.31E+02	3.31E+02	3.31E+02	3.30E+02	3.30E+02	3.30E+02	3.30E+02	3.30E+02	3.30E+02	3.30E+02	3.29E+02	3.29E+02	3.29E+02	3.29E+02	3.29E+02	3.29E+02	3.29E+02	3.28E+02	3.28E+02	3.28E+02	3.28E+02	3.28E+02	3.28E+02	3.28E+02	3.27E+02	3.27E+02	3.27E+02];
 
+%reshaped cause I like to look at columns as opposed to rows 
 CO225data = reshape(CO225data, [length(CO285data) 1]);
 CO245data = reshape(CO245data, [length(CO285data) 1]);
 CO260data = reshape(CO260data, [length(CO285data) 1]);
 CO285data = reshape(CO285data, [length(CO285data) 1]);
 
-%% Solve RCP 8.5
-%initial params 
-
-m = 1095.*10.^12;
-A_tot = integral(@(x) (6371.*1000).^2.*2.*pi.*sin(x), 0, pi/6);
-A_p = 16.*10.^6.*1000.^2;   %LOOK AT HUGELIUS LATER
-p = A_p./A_tot;
-Z_L = 15;
-cdensity = @(m) m./(A_p.*Z_L); 
-options = optimset('Display','off');
-x0 = 1.03; %solver x0
-
-F_A = 104;
-Q = 201.73; 
-F_O = 9.75;
-delta = 0.6;
-
-%arrays 
-ch4conc(1) = CH485data(235);    
-co2conc(1) = CO285data(235);
-co2_loss(1) = 0;
-ch4_loss(1) = 0;
-
-for i = 1:250
-    m = m - co2_loss(i) - ch4_loss(i);
-    rhoC = cdensity(m);
-    
-    %equilibrium states
-    eq = fsolve(@(tau) eqtemp(tau, F_O, F_A, Q, co2conc(i), delta, ch4conc(i)),x0, options);
-    eqair = eqairtemp(eq, F_O, F_A, Q, co2conc(i), delta, ch4conc(i));
-    Z_0 = fsolve(@(z) eqtempgrad(eq, F_O, F_A, Q, co2conc(i), delta, ch4conc(i), z)-1,0, options);
-    
-    eqtemps(i) = eq;
-    
-    %compute HR
-    if Z_0>-15 & Z_0<=0
-        m_lossCO2_1 = integral(@(z) p.*rateCO2(eqtempgrad(eq, F_O, F_A, Q, co2conc(i), delta, ch4conc(i), z)).*rhoC, Z_0, 0, 'ArrayValued', true);
-        m_lossCH4_1 = integral(@(z) p.*rateCH4(eqtempgrad(eq, F_O, F_A, Q, co2conc(i), delta, ch4conc(i), z)).*rhoC, Z_0, 0, 'ArrayValued', true);
-    else 
-        m_lossCO2_1 = 0;
-        m_lossCH4_1 = 0;
-    end
-    
-    %compute total emissions    
-    totalCO2_loss = (m_lossCO2_1).*A_tot;
-    totalCH4_loss = (m_lossCH4_1).*A_tot;
-    m_netCO2 = totalCO2_loss;
-    m_netCH4 = totalCH4_loss;
-    
-    co2_loss(i+1) = m_netCO2;
-    ch4_loss(i+1) = m_netCH4;
-
-    %diverge from rcp concentrations
-    new_concentrations = concentration([sum(co2_loss) sum(ch4_loss)], [CO285data(i+235) CH485data(i+235)]);
-    co2conc(i+1) = new_concentrations(1);
-    ch4conc(i+1) = new_concentrations(2);
-    
-    eq, eqair, Z_0, m_netCO2, m_netCH4, m 
-end 
-%% Solve RCP 2.5
-%initial params 
-
-m = 1095.*10.^12;
-A_tot = integral(@(x) (6371.*1000).^2.*2.*pi.*sin(x), 0, pi/6);
-A_p = 16.*10.^6.*1000.^2;
-p = A_p./A_tot;
-Z_L = 15;
-cdensity = @(m) m./(A_p.*Z_L); 
-options = optimset('Display','off');
-x0 = 1.03; %solver x0
-
-F_A = 104;
-Q = 201.73; 
-F_O = 9.75;
-delta = 0.6;
-
-%arrays 
-ch4conc(1) = CH425data(235);    %year 2000
-co2conc(1) = CO225data(235);
-co2_loss(1) = 0;
-ch4_loss(1) = 0;
-
-for i = 1:250
-    m = m - co2_loss(i) - ch4_loss(i);
-    rhoC = cdensity(m);
-    
-    %equilibrium states
-    eq = fsolve(@(tau) eqtemp(tau, F_O, F_A, Q, co2conc(i), delta, ch4conc(i)),x0, options);
-    eqair = eqairtemp(eq, F_O, F_A, Q, co2conc(i), delta, ch4conc(i));
-    Z_0 = fsolve(@(z) eqtempgrad(eq, F_O, F_A, Q, co2conc(i), delta, ch4conc(i), z)-1,0, options);
-    
-    eqtemps(i) = eq;
-    
-    %compute HR
-    if Z_0>-15 & Z_0<=0
-        m_lossCO2_1 = integral(@(z) 0.01.*p.*rateCO2(eqtempgrad(eq, F_O, F_A, Q, co2conc(i), delta, ch4conc(i), z)).*rhoC, Z_0, 0, 'ArrayValued', true);
-        m_lossCH4_1 = integral(@(z) 0.01.*p.*rateCH4(eqtempgrad(eq, F_O, F_A, Q, co2conc(i), delta, ch4conc(i), z)).*rhoC, Z_0, 0, 'ArrayValued', true);
-    else 
-        m_lossCO2_1 = 0;
-        m_lossCH4_1 = 0;
-    end
-    
-    %compute total C released
-    totalCO2_loss = (m_lossCO2_1).*A_tot;
-    totalCH4_loss = (m_lossCH4_1).*A_tot;
-    m_netCO2 = totalCO2_loss;
-    m_netCH4 = totalCH4_loss;
-    
-    co2_loss(i+1) = m_netCO2;
-    ch4_loss(i+1) = m_netCH4;
-
-    %diverge from rcp concentrations
-    new_concentrations = concentration([sum(co2_loss) sum(ch4_loss)], [CO225data(i+235) CH425data(i+235)]);
-    co2conc(i+1) = new_concentrations(1);
-    ch4conc(i+1) = new_concentrations(2);
-    
-    eq, eqair, Z_0, m_netCO2, m_netCH4, m 
-end 
-%% No permafrost 
-%initial params 
-
-m = 1095.*10.^12;
-A_tot = integral(@(x) (6371.*1000).^2.*2.*pi.*sin(x), 0, pi/6);
-A_p = 16.*10.^6.*1000.^2;
-p = A_p./A_tot;
-Z_L = 15;
-cdensity = @(m) m./(A_p.*Z_L); 
-options = optimset('Display','off');
-
-F_A = 104;
-Q = 201.73; 
-F_O = 9.75;
-delta = 0.6;
+%% stuff
 
 
-for i = 1:length(CO225data)
-    %equilibrium states
-    eq45_09(i) = fsolve(@(tau) eqtemp(tau, F_O, F_A, Q, CO245data(i), delta, CH445data(i)),0.9, options);
-    eq45_1(i) = fsolve(@(tau) eqtemp(tau, F_O, F_A, Q, CO245data(i), delta, CH445data(i)),1, options);
-    eq45_103(i) = fsolve(@(tau) eqtemp(tau, F_O, F_A, Q, CO245data(i), delta, CH445data(i)),1.03, options);
-end 
 
-for i = 1:length(CO225data)
-    %equilibrium states
-    eq60_09(i) = fsolve(@(tau) eqtemp(tau, F_O, F_A, Q, CO260data(i), delta, CH460data(i)),0.9, options);
-    eq60_1(i) = fsolve(@(tau) eqtemp(tau, F_O, F_A, Q, CO260data(i), delta, CH460data(i)),1, options);
-    eq60_103(i) = fsolve(@(tau) eqtemp(tau, F_O, F_A, Q, CO260data(i), delta, CH460data(i)),1.03, options);
-end 
-%%
-hold on 
-plot(eq45_09, 'y')
-hold on
-plot(eq45_1, 'y')
-hold on
-plot(eq45_103, 'y')
-hold on
-plot(eq60_09, 'g')
-hold on
-plot(eq60_1, 'g')
-hold on
-plot(eq60_103, 'g')
-hold on
-%% FUNCTIONs
-eqtemp(1.101, F_O, F_A, Q, CO285data(559), delta, CH485data(559))
+%% functions 
 
-function F = EnergyBalanceModelArctic(tau, F_O, F_A, mu, delta)
+function F = ebmPermafrost(tau, F_O, F_A, mu_1, nu_1, delta)
 % This function is the energy balance model for the Arctic region (70N)
 
 % CONSTANTS
@@ -210,8 +34,9 @@ sigma = 5.670367*10^-8;                         % W/(m^2K^4)            % Stefan
 omega = 0.01;                                   % nondimensional        % albedo switch function smoothness
 Gamma = 6.49*10^-3;                             % K/m                   % standard ICAO lapse rate for the troposphere
 gamma = Gamma/T_R;                              % 1/m                   % scaled lapse rate for non-dimensional system
-k_C = 0.07424;                                  % m^2/kg                % absorption cross-section per unit mass of atmosphere for carbon dioxide
+k_C = 0.0694;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for carbon dioxide
 k_W = 0.05905;                                  % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
+k_M = 1.4022;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
 Z_P = 9000;                                     % m                     % troposphere height      
 L_v = 2.2558*10^6;                              % m^2/s^2               % latent heat of vapourization for water
 R = 8.3144598;                                  % J/(mol K)             % universal gas constant
@@ -250,385 +75,42 @@ f_C = F_C./(sigma.*T_R.^4);                     % nondimensional        % scaled
 % albedo switch function (nondimensional)
 a = 1./2.*((alpha_w + alpha_c)+(alpha_w-alpha_c).*tanh((tau-1)./omega));    
 
-eta_Cl = 0.3729;                                % nondimensional        % absorption due to clouds
+% ------ PERMAFROST --------
+
+%parameters
+Q_10 = 1.5;                                     % nondimensional        %Q10 value for rate scaling 
+R1 = 1;                                         % kg a^-1               %emission rate in baseline year
+tref = 0.894;                                   % nondimensional        %reference temperature in baseline year
+fCO2 = 0.977;                                   % nondimensional        %fraction of total emissions as CO_2
+fCH4 = 0.023;                                   % nondimensional        %fraction of total emissions as CH_4
+mass_Atm = 8.6454e+18;                          % kg                    %mass of atmosphere
+mmC = 44.01e-3;                                 % kg mol^-1             %molar mass CO_2
+mmM = 16.04e-3;                                 % kg mol^-1             %molar mass CH_4
+mmA = 28.97e-3;                                 % kg mol^-1             %molar mass atmosphere
+k_nu = log(2)./9.1;                              % nondimensional        %decomposition rate for CH_4 due to OH interactions
+
+%dynamics
+R2 = R1.*(Q_10).^(T_R.*(tau - tref)./10);       %kg a^-1                %Q10 scaled decomposition rate 
+mu_2 = ((mmC./mmA).*fCO2.*R2./mass_Atm).*10.^6; %ppm                    %permafrost CO_2 burden 
+nu_2 = ((mmM./mmA).*fCH4.*R2./mass_Atm).*10.^9; %ppb                    %permafrost CH_4 burden MISSING OH INTERACTIONS 
+
+% --------------------------
+
+eta_Cl = 0.3736;                                % nondimensional        % absorption due to clouds
 G_c = 1.52./(10.^6).*k_C.*1.03.*10.^4;          % mol/micromol          % atmospheric carbon dioxide absorption coefficient
-eta_C1 = 1 - exp(-G_c.*mu);                     % nondimensional        % absorption due to carbon dioxide         
+eta_C1 = 1 - exp(-G_c.*(mu_1+mu_2));                     % nondimensional        % absorption due to carbon dioxide         
+G_M = 0.554./(10.^9).*k_M.*1.03.*10.^4;
+eta_M = 1 - exp(-G_M.*(nu_1+nu_2));
 G_W2 = k_W.*rho_wsat./gamma;                    % nondimensional        % atmospheric water vapour absorption coefficient 2
 wvinteg1 = @(w) 1./w.*exp(G_W1.*(w-1)./w);      % nondimensional        % temperature-dependent part of Clausius-Clapeyron equation integrated over troposphere
 eta_W1 = 1 - exp(-delta.*G_W2.*integral(wvinteg1, tau-(gamma.*Z_P), tau));   % nondimensional        % absorption due to water vapour     
-eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl);   % nondimensional        % total atmospheric longwave absorption
+eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl).*(1-eta_M);   % nondimensional        % total atmospheric longwave absorption
 
 % entire energy balance model
 F = (1-a).*q.*(1 - 0.2324 - 0.1212) + f_O - tau.^4 - f_C + betaconst.*(0.2324.*q + f_A + f_C + eta.*tau.^4);
 end
-function r2 = Q10(r1, t1, t2, sensitivity)
-    r2 = r1.*(sensitivity.^((t2-t1)./10));
-end
-function r = rateCO2(tau)
-%{
-Function for scaling rate of decomposition according to Q10 sensitivity
-Args: tau - nondimensional temperature 
-Returns: r - decomp rate CO2
+function r = CO2emissionrate(tau);
 
-current function uses Alternative #2 methodology 
-%}
-
-%Constants
-gammaA_ms = 0.013; %fraction of carbon in active pool, mineral 
-gammaS_ms = 0.107; %fraction of carbon in slow pool, mineral 
-gammaA_o = 0.015; %fraction of carbon in active pool, organic 
-gammaS_o = 0.293; %fraction of carbon in slow pool, organic
-fms = 0.708; %mass fraction of carbon in mineral soils
-fo = 0.292; %mass fraction of carbon in organic soils  
-A_msan = 0.05; %Area fraction in mineral with anaerobic decomp
-A_oan = 0.8; %Area fraction in organic with anaerobic decomp
-chi_ms = 0.25; %oxidation fraction mineral under anaerobic
-chi_o = 0.6; %oxidation fraction organic under anaerobic
-R_ana = 0.1; %ratio of decomp speeds anaerobic:aerobic 
-C_tot = 1035*10.^12; %total carbon stocks in permafrost 
-Q10_a = 1.5; %Q10 sensitivity aerobic
-Q10_an = 3; %Q10 sensitivity anaerobic 
-k_a_ms = 1./((0.48+0.21)./2); %decomp rate active, mineral soils
-k_s_ms = 1./((8.76+6.42)./2); %decomp rate slow, mineral soils
-k_a_o = 1./0.41; %decom rate active, organic soils 
-k_s_o = 1./7.21; %decomp rate slow, organic soils 
-
-%define rate scaling functions
-T = tau.*273.15-273.15;
-ratescale_a_ms = @(T) Q10(k_a_ms, 5, T, Q10_a);
-ratescale_s_ms = @(T) Q10(k_s_ms, 5, T, Q10_a);
-ratescale_a_o = @(T) Q10(k_a_o, 5, T, Q10_a);
-ratescale_s_o = @(T) Q10(k_s_o, 5, T, Q10_a);
-
-
-rate_co2 = @(t) (gammaA_ms.*ratescale_a_ms(t) + gammaS_ms.*ratescale_s_ms(t)).*fms.*((1-A_msan)+ R_ana.*A_msan.*chi_ms)+(gammaA_o.*ratescale_a_o(t) + gammaS_o.*ratescale_s_o(t)).*fo.*((1-A_oan)+ R_ana.*A_oan.*chi_o);
-%{
-months = linspace(0,11,12);
-for i=1:12
-    if T+5.*sin(months(i)*2*pi./11) > 0
-        rates(i) = rate_co2(T+5.*sin(months(i)*2*pi./11));
-    else 
-        rates(i) = 0;
-    end
 end 
-r = mean(rates);
-%}
-r = rate_co2(T);
-end
-function r = rateCH4(tau)
-%{
-Function for scaling rate of decomposition according to Q10 sensitivity
-Args: tau - nondimensional temperature 
-Returns: r - decomp rate CH4
-
-current function uses Alternative #2 methodology 
-%}
-
-%Constants
-gammaA_ms = 0.013; %fraction of carbon in active pool, mineral 
-gammaS_ms = 0.107; %fraction of carbon in slow pool, mineral 
-gammaA_o = 0.015; %fraction of carbon in active pool, organic 
-gammaS_o = 0.293; %fraction of carbon in slow pool, organic
-fms = 0.708; %mass fraction of carbon in mineral soils
-fo = 0.292; %mass fraction of carbon in organic soils  
-A_msan = 0.05; %Area fraction in mineral with anaerobic decomp
-A_oan = 0.8; %Area fraction in organic with anaerobic decomp
-chi_ms = 0.25; %oxidation fraction mineral under anaerobic
-chi_o = 0.6; %oxidation fraction organic under anaerobic
-R_ana = 0.1; %ratio of decomp speeds anaerobic:aerobic 
-C_tot = 1035*10.^12; %total carbon stocks in permafrost 
-Q10_a = 1.5; %Q10 sensitivity aerobic
-Q10_an = 3; %Q10 sensitivity anaerobic 
-k_a_ms = 1./((0.48+0.21)./2); %decomp rate active, mineral soils
-k_s_ms = 1./((8.76+6.42)./2); %decomp rate slow, mineral soils
-k_a_o = 1./0.41; %decom rate active, organic soils 
-k_s_o = 1./7.21; %decomp rate slow, organic soils 
-
-%define rate scaling functions
-T = tau.*273.15-273.15;
-ratescale_a_ms = @(T) Q10(k_a_ms, 5, T, Q10_a);
-ratescale_s_ms = @(T) Q10(k_s_ms, 5, T, Q10_a);
-ratescale_a_o = @(T) Q10(k_a_o, 5, T, Q10_a);
-ratescale_s_o = @(T) Q10(k_s_o, 5, T, Q10_a);
-
-rate_ch4 = @(t) (gammaA_ms.*ratescale_a_ms(t) + gammaS_ms.*ratescale_s_ms(t)).*R_ana.*(fms.*A_msan.*(1-chi_ms)) + (gammaA_o.*ratescale_a_o(t) + gammaS_o.*ratescale_s_o(t)).*R_ana.*(fo.*A_oan.*(1-chi_o));
-
-%{
-months = linspace(0,11,12);
-for i=1:12
-    if T+5.*sin(months(i)*2*pi./11) > 0
-        rates(i) = rate_ch4(T+5.*sin(months(i)*2*pi./11));
-    else 
-        rates(i) = 0;
-    end
+function r = CH4emissionrate(tau);
 end 
-r = mean(rates);
-%}
-r = rate_ch4(T);
-end
-function F = eqtemp(tau, F_O, F_A, Q, mu, delta, nu)
-% modified EBM
-
-% CONSTANTS
-T_R = 273.15;                                   % K                     % reference temperature, equal to 0 Celcius
-betaconst = 0.63;                               % nondimensional        % fraction of atmospheric irradiance hitting surface           
-sigma = 5.670367*10^-8;                         % W/(m^2K^4)            % Stefan-Boltzmann constant 
-omega = 0.01;                                   % nondimensional        % albedo switch function smoothness
-Gamma = 6.49*10^-3;                             % K/m                   % standard ICAO lapse rate for the troposphere
-gamma = Gamma/T_R;                              % 1/m                   % scaled lapse rate for non-dimensional system
-k_C = 0.0694;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for carbon dioxide
-k_W = 0.05905;                                  % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
-k_ch4 = 1.4022;                                 % m^2/kg                % absorption cross-section per unit mass of atmosphere for methane 
-Z_P = 9000;                                     % m                     % troposphere height      
-L_v = 2.2558*10^6;                              % m^2/s^2               % latent heat of vapourization for water
-R = 8.3144598;                                  % J/(mol K)             % universal gas constant
-R_W = 461.4;                                    % m^2/(s^2 K)           % specific gas constant of water vapour
-alpha_w = 0.08;                                 % nondimensional        % warm (ocean) albedo
-alpha_c = 0.7;                                  % nondimensional        % cold (ice) albedo                                 % W/m^2                 % average incoming solar radiation above 60N
-q = Q/(sigma*T_R^4);                            % nondimensional        % scaled incoming solar radiation at 70N
-c_P = 1004;                                     % J/(K kg)              % specific heat capacity of dry atmopshere at T_R
-C_LH = 1.0*10^-3;                               % nondimensional        % latent heat bulk exchange coefficient 
-C_SH = 1.0*10^-3;                               % nondimensional        % sensible heat bulk exchange coefficient
-U_r = 4;                                        % m/s                   % average horizontal wind speed
-z_r = 600;                                      % m                     % average height of planetary boundary layer
-P_sat = 611.2;                                  % Pa = kg/(m s^2)       % saturated vapour pressure at T_R
-rho_wsat = 4.849*10^-3;                         % kg/m^3                % saturated vapour density at T_R
-P_0 = 101325.00;                                % Pa                    % pressure at surface 
-M =  0.0289644;                                 % kg/mol                % molecular weight of dry air
-G_W1 = L_v/(R_W*T_R);                           % nondimensional        % atmospheric water vapour absorption coefficient 1
-
-%%%% new terms for permafrost %%%%
-k_L = 2;                                        % W m^-1 K^-1           % thermal conductivity 
-Z_L = 15;                                       % m                     % surface slab depth 
-H2 = k_L./(Z_L.*sigma.*T_R^3);                  % nondimensional 
-T_ZL = -2.35;                                   % C                     % ref temp at bottom of slab    
-tau_ZL = (T_ZL+273.17)./273.15;                 % nondimensional        % nondimensional ref temp at bottom of slab
-
-% FUNCTIONS
-T_S = tau*T_R;                                  % K                     % un-scaled surface temperature for use in SH and LH
-% density of atmosphere (kg/m^3) at the top of PBL as a function of surface temperature
-rho = P_0.*M./(R.*(T_S-Gamma.*z_r));                        
-% vertical sensible heat transport (W/m^2) due to turbulent flux in the PBL
-SH = c_P.*rho.*C_SH.*U_r.*(Gamma.*z_r);
-% vertical latent heat transport (W/m^2) due to turbulent flux in the PBL
-LE = L_v.*C_LH.*U_r./(R_W.*(T_S-Gamma.*z_r)).*P_sat.*(exp(G_W1.*(T_S - T_R)./T_S) - delta.*exp(G_W1.*(T_S - Gamma.*z_r -T_R)./(T_S - Gamma.*z_r)));
-% combined vertical turbulent heat transport in the PBL
-F_C = LE + SH;
-
-f_A  = F_A./(sigma.*T_R.^4);                    % nondimensional        % scaled horizontal atmospheric heat transport
-f_O  = F_O./(sigma.*T_R.^4);                    % nondimensional        % scaled horizontal aoceanic heat transport
-f_C = F_C./(sigma.*T_R.^4);                     % nondimensional        % scaled vertical turbulent heat flux heat transport
-
-% albedo switch function (nondimensional)
-a = 1./2.*((alpha_w + alpha_c)+(alpha_w-alpha_c).*tanh((tau-1)./omega));    
-
-%modified eta_cl
-eta_Cl = 0.3736;                                % nondimensional        % absorption due to clouds
-G_c = 1.52./(10.^6).*k_C.*1.03.*10.^4;          % mol/micromol          % atmospheric carbon dioxide absorption coefficient
-eta_C1 = 1 - exp(-G_c.*mu);                     % nondimensional        % absorption due to carbon dioxide         
-G_ch = 0.554./(10.^9).*k_ch4.*1.03.*10.^4;
-eta_ch = 1 - exp(-G_ch.*nu);
-G_W2 = k_W.*rho_wsat./gamma;                    % nondimensional        % atmospheric water vapour absorption coefficient 2
-wvinteg1 = @(w) 1./w.*exp(G_W1.*(w-1)./w);      % nondimensional        % temperature-dependent part of Clausius-Clapeyron equation integrated over troposphere
-eta_W1 = 1 - exp(-delta.*G_W2.*integral(wvinteg1, tau-(gamma.*Z_P), tau));   % nondimensional        % absorption due to water vapour     
-
-eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl).*(1-eta_ch);   % nondimensional        % total atmospheric longwave absorption
-
-F = tau_ZL - tau + (1).*(f_O - (1-betaconst).*f_C + (1-a).*q.*(1 - 0.2324 - 0.1212) - (1-betaconst.*eta).*tau.^4 + betaconst.*(f_A + 0.2324.*q))./H2;
-end
-function T = eqtempgrad(eqtau, F_O, F_A, Q, mu, delta, nu, z)
-%describes temperature as a function of depth, z (m), at equilibrium
-
-% CONSTANTS
-T_R = 273.15;                                   % K                     % reference temperature, equal to 0 Celcius
-betaconst = 0.63;                               % nondimensional        % fraction of atmospheric irradiance hitting surface           
-sigma = 5.670367*10^-8;                         % W/(m^2K^4)            % Stefan-Boltzmann constant 
-omega = 0.01;                                   % nondimensional        % albedo switch function smoothness
-Gamma = 6.49*10^-3;                             % K/m                   % standard ICAO lapse rate for the troposphere
-gamma = Gamma/T_R;                              % 1/m                   % scaled lapse rate for non-dimensional system
-k_C = 0.0694;                                  % m^2/kg                % absorption cross-section per unit mass of atmosphere for carbon dioxide
-k_W = 0.05905;                                  % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
-k_ch = 1.4022;
-Z_P = 9000;                                     % m                     % troposphere height      
-L_v = 2.2558*10^6;                              % m^2/s^2               % latent heat of vapourization for water
-R = 8.3144598;                                  % J/(mol K)             % universal gas constant
-R_W = 461.4;                                    % m^2/(s^2 K)           % specific gas constant of water vapour
-alpha_w = 0.08;                                 % nondimensional        % warm (ocean) albedo
-alpha_c = 0.7;                                  % nondimensional        % cold (ice) albedo                                 % W/m^2                 % average incoming solar radiation above 60N
-q = Q/(sigma*T_R^4);                            % nondimensional        % scaled incoming solar radiation at 70N
-c_P = 1004;                                     % J/(K kg)              % specific heat capacity of dry atmopshere at T_R
-C_LH = 1.0*10^-3;                               % nondimensional        % latent heat bulk exchange coefficient 
-C_SH = 1.0*10^-3;                               % nondimensional        % sensible heat bulk exchange coefficient
-U_r = 4;                                        % m/s                   % average horizontal wind speed
-z_r = 600;                                      % m                     % average height of planetary boundary layer
-P_sat = 611.2;                                  % Pa = kg/(m s^2)       % saturated vapour pressure at T_R
-rho_wsat = 4.849*10^-3;                         % kg/m^3                % saturated vapour density at T_R
-P_0 = 101325.00;                                % Pa                    % pressure at surface 
-M =  0.0289644;                                 % kg/mol                % molecular weight of dry air
-G_W1 = L_v/(R_W*T_R);                           % nondimensional        % atmospheric water vapour absorption coefficient 1
-
-%%%% new terms %%%%
-k_L = 2;
-Z_L = 15;
-zeta = z./Z_L;
-H2 = k_L./(Z_L.*sigma.*T_R^3);
-T_ZL = -2.35;
-tau_ZL = (T_ZL+273.17)./273.15;
-
-% FUNCTIONS
-T_S = eqtau*T_R;                                  % K                     % un-scaled surface temperature for use in SH and LH
-% density of atmosphere (kg/m^3) at the top of PBL as a function of surface temperature
-rho = P_0.*M./(R.*(T_S-Gamma.*z_r));                        
-% vertical sensible heat transport (W/m^2) due to turbulent flux in the PBL
-SH = c_P.*rho.*C_SH.*U_r.*(Gamma.*z_r);
-% vertical latent heat transport (W/m^2) due to turbulent flux in the PBL
-LE = L_v.*C_LH.*U_r./(R_W.*(T_S-Gamma.*z_r)).*P_sat.*(exp(G_W1.*(T_S - T_R)./T_S) - delta.*exp(G_W1.*(T_S - Gamma.*z_r -T_R)./(T_S - Gamma.*z_r)));
-% combined vertical turbulent heat transport in the PBL
-F_C = LE + SH;
-
-f_A  = F_A./(sigma.*T_R.^4);                    % nondimensional        % scaled horizontal atmospheric heat transport
-f_O  = F_O./(sigma.*T_R.^4);                    % nondimensional        % scaled horizontal aoceanic heat transport
-f_C = F_C./(sigma.*T_R.^4);                     % nondimensional        % scaled vertical turbulent heat flux heat transport
-
-% albedo switch function (nondimensional)
-a = 1./2.*((alpha_w + alpha_c)+(alpha_w-alpha_c).*tanh((eqtau-1)./omega));    
-
-%modified eta_cl
-eta_Cl = 0.3736;                                % nondimensional        % absorption due to clouds
-G_c = 1.52./(10.^6).*k_C.*1.03.*10.^4;          % mol/micromol          % atmospheric carbon dioxide absorption coefficient
-eta_C1 = 1 - exp(-G_c.*mu);                     % nondimensional        % absorption due to carbon dioxide         
-G_ch = 0.554./(10.^9).*k_ch.*1.03.*10.^4;
-eta_ch = 1 - exp(-G_ch.*nu);
-G_W2 = k_W.*rho_wsat./gamma;                    % nondimensional        % atmospheric water vapour absorption coefficient 2
-wvinteg1 = @(w) 1./w.*exp(G_W1.*(w-1)./w);      % nondimensional        % temperature-dependent part of Clausius-Clapeyron equation integrated over troposphere
-eta_W1 = 1 - exp(-delta.*G_W2.*integral(wvinteg1, eqtau-(gamma.*Z_P), eqtau));   % nondimensional        % absorption due to water vapour     
-
-eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl)*(1-eta_ch);   % nondimensional        % total atmospheric longwave absorption
-
-
-T = tau_ZL + (zeta+1).*(f_O - (1-betaconst).*f_C + (1-a).*q.*(1 - 0.2324 - 0.1212) - (1-betaconst.*eta).*eqtau.^4 + betaconst.*(f_A + 0.2324.*q))./H2;
-
-end
-function T = eqairtemp(eqtau, F_O, F_A, Q, mu, delta, nu)
-%describes temperature as a function of depth, z (m), at equilibrium
-
-% CONSTANTS
-T_R = 273.15;                                   % K                     % reference temperature, equal to 0 Celcius
-betaconst = 0.63;                               % nondimensional        % fraction of atmospheric irradiance hitting surface           
-sigma = 5.670367*10^-8;                         % W/(m^2K^4)            % Stefan-Boltzmann constant 
-omega = 0.01;                                   % nondimensional        % albedo switch function smoothness
-Gamma = 6.49*10^-3;                             % K/m                   % standard ICAO lapse rate for the troposphere
-gamma = Gamma/T_R;                              % 1/m                   % scaled lapse rate for non-dimensional system
-k_C = 0.0694;                                  % m^2/kg                % absorption cross-section per unit mass of atmosphere for carbon dioxide
-k_W = 0.05905;                                  % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
-k_ch = 1.4022;
-Z_P = 9000;                                     % m                     % troposphere height      
-L_v = 2.2558*10^6;                              % m^2/s^2               % latent heat of vapourization for water
-R = 8.3144598;                                  % J/(mol K)             % universal gas constant
-R_W = 461.4;                                    % m^2/(s^2 K)           % specific gas constant of water vapour
-alpha_w = 0.08;                                 % nondimensional        % warm (ocean) albedo
-alpha_c = 0.7;                                  % nondimensional        % cold (ice) albedo                                 % W/m^2                 % average incoming solar radiation above 60N
-q = Q/(sigma*T_R^4);                            % nondimensional        % scaled incoming solar radiation at 70N
-c_P = 1004;                                     % J/(K kg)              % specific heat capacity of dry atmopshere at T_R
-C_LH = 1.0*10^-3;                               % nondimensional        % latent heat bulk exchange coefficient 
-C_SH = 1.0*10^-3;                               % nondimensional        % sensible heat bulk exchange coefficient
-U_r = 4;                                        % m/s                   % average horizontal wind speed
-z_r = 600;                                      % m                     % average height of planetary boundary layer
-P_sat = 611.2;                                  % Pa = kg/(m s^2)       % saturated vapour pressure at T_R
-rho_wsat = 4.849*10^-3;                         % kg/m^3                % saturated vapour density at T_R
-P_0 = 101325.00;                                % Pa                    % pressure at surface 
-M =  0.0289644;                                 % kg/mol                % molecular weight of dry air
-G_W1 = L_v/(R_W*T_R);                           % nondimensional        % atmospheric water vapour absorption coefficient 1
-
-%%%% new terms %%%%
-k_L = 2;
-Z_L = 15;
-H2 = k_L./(Z_L.*sigma.*T_R^3);
-T_ZL = -2.35;
-tau_ZL = (T_ZL+273.17)./273.15;
-
-% FUNCTIONS
-T_S = eqtau*T_R;                                  % K                     % un-scaled surface temperature for use in SH and LH
-% density of atmosphere (kg/m^3) at the top of PBL as a function of surface temperature
-rho = P_0.*M./(R.*(T_S-Gamma.*z_r));                        
-% vertical sensible heat transport (W/m^2) due to turbulent flux in the PBL
-SH = c_P.*rho.*C_SH.*U_r.*(Gamma.*z_r);
-% vertical latent heat transport (W/m^2) due to turbulent flux in the PBL
-LE = L_v.*C_LH.*U_r./(R_W.*(T_S-Gamma.*z_r)).*P_sat.*(exp(G_W1.*(T_S - T_R)./T_S) - delta.*exp(G_W1.*(T_S - Gamma.*z_r -T_R)./(T_S - Gamma.*z_r)));
-% combined vertical turbulent heat transport in the PBL
-F_C = LE + SH;
-
-f_A  = F_A./(sigma.*T_R.^4);                    % nondimensional        % scaled horizontal atmospheric heat transport
-f_O  = F_O./(sigma.*T_R.^4);                    % nondimensional        % scaled horizontal aoceanic heat transport
-f_C = F_C./(sigma.*T_R.^4);                     % nondimensional        % scaled vertical turbulent heat flux heat transport
-
-% albedo switch function (nondimensional)
-a = 1./2.*((alpha_w + alpha_c)+(alpha_w-alpha_c).*tanh((eqtau-1)./omega));    
-
-%modified eta_cl
-eta_Cl = 0.3736;                                % nondimensional        % absorption due to clouds
-G_c = 1.52./(10.^6).*k_C.*1.03.*10.^4;          % mol/micromol          % atmospheric carbon dioxide absorption coefficient
-eta_C1 = 1 - exp(-G_c.*mu);                     % nondimensional        % absorption due to carbon dioxide         
-G_ch = 0.554./(10.^9).*k_ch.*1.03.*10.^4;
-eta_ch = 1 - exp(-G_ch.*nu);
-G_W2 = k_W.*rho_wsat./gamma;                    % nondimensional        % atmospheric water vapour absorption coefficient 2
-wvinteg1 = @(w) 1./w.*exp(G_W1.*(w-1)./w);      % nondimensional        % temperature-dependent part of Clausius-Clapeyron equation integrated over troposphere
-eta_W1 = 1 - exp(-delta.*G_W2.*integral(wvinteg1, eqtau-(gamma.*Z_P), eqtau));   % nondimensional        % absorption due to water vapour     
-
-eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl)*(1-eta_ch);   % nondimensional        % total atmospheric longwave absorption
- 
-T = ((1/0.9).*(f_A + f_C + 0.2324.*q + eta.*eqtau.^4)).^(0.25);
-end
-function c = concentration(masses, initial_concentrations)
-%{
-Computes new concentrations for CO2 and CH4 given the mass of each gas 
-input to the atmosphere and the previous global concentrations.
-
-Args:  masses - tuple containing added mass of carbon in the form of CO2 
-                and CH4 ([mCO2 mCH4])
-       initial_concentrations - tuple of concentrations before permafrost
-                                respiration, [mu_i nu_i] in units [ppm ppb]
-
-Returns: c - tuple of new global atmospheric concentrations, 
-             [mu_f nu_f] in units [ppm ppb]
-%}
-
-cco2_i = initial_concentrations(1); %initial concentration CO2 (ppm)
-cch4_i = initial_concentrations(2); %initial concentration CH4 (ppb)
-
-MCO2 = 44.01;   %Molar masses of CO2, CH4, C, O, H and atmosphere 
-MCH4 = 16.04;
-MC = 12.0107;
-MO = 15.999;
-MH = 1.00784;
-M = 28.97; 
-
-mco2C = masses(1); %mass of carbon respired by permafrost as CO2
-mch4C = masses(2); %mass of carbon respired by permafrost as CH4
-mco2O = (mco2C./MC).*2.*MO; %take into account mass of oxygen needed in formation of CO2
-mch4H = (mch4C./MC).*4.*MH; %take into account mass of hydrogen needed in formation of CH4
-mco2added = mco2C + mco2O;  %total mass of CO2 respired 
-mch4added = mch4C + mch4H;  %total mass of CH4 respired 
-
-cco2 = cco2_i./(10.^6);  %ppm to fraction
-cch4 = cch4_i./(10.^9);  %ppb to fraction
-rho = 1.2;   %atmospheric density 
-
-%atmosphere volume calculation
-radius_troposphere = @(x) 16000.*x./pi + 9000 + 6371.*1000;
-volume = 2.*integral2(@(x,y) (1/3).*sin(x).*(radius_troposphere(x).^3 - (6371.*1000).^3), 0, pi./2, 0, 2.*pi);
-
-M_atm = rho.*volume; %total mass of atmosphere
-mco2initial = (MCO2./M).*cco2.*M_atm; %initial mass of CO2 in atmosphere using mol to mass ratio
-mch4initial = (MCH4./M).*cch4.*M_atm; %initial mass of CH4 in atmosphere
-
-M_atmnew = M_atm + mco2added + mch4added;   %new mass of atmosphere
-mco2new = mco2initial + mco2added;  %new mass of CO2 in atmosphere
-mch4new = mch4initial + mch4added;  %new mass of CH4 in atmosphere
-
-co2ratio = (M./MCO2).*(mco2new./M_atmnew);  %mass concentration to mol concentration
-ch4ratio = (M./MCH4).*(mch4new./M_atmnew);  
-
-c(1) = co2ratio.*10.^6; %fraction to ppm
-c(2) = ch4ratio.*10.^9; %fraction to ppb
-end
