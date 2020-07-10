@@ -22,8 +22,9 @@ CO285data = reshape(CO285data, [length(CO285data) 1]);
 %THIS IMPACTS DERIVATIVE CALCULATIONS AND PREDICTS NEGATIVE SOIL CARBON
 %RESOLVE THIS BY CATCHING NO SOL IN EBM CLASS "DYNAMICS" FUNCTION
 
-carbon = CO245data;
-methane = CH485data;
+carbon = CO260data;
+methane = CH460data;
+
 %instantiate "ebm" object and perscribe forcings 
 e = ebm(9.75, 104, 201.73, 0.6);
 x0=0.9;
@@ -116,7 +117,14 @@ for i = 1:length(carbon)-3
     tau_s(end+1) = e.tau_s;
     %compute dynamics
     state_derivatives(end+1,:) = dynamics(e);
-    e.tau_s
+    
+    %{  
+    Block for looking for bifurcations, spike in error 
+    [sol, err, flag] = fsolve(@(t) ebm.eq_implicit(t, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta),tau_s(end-1));
+    sols(i) = sol;
+    error(i) = err;
+    flags(i) = flag;
+    %}
 end
 %% Euler
 g = ebm(9.75, 104, 201.73, 0.6);

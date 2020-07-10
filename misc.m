@@ -1,3 +1,53 @@
+%% zero depth dynamics
+
+%figure out where zero temp depth is 
+zero_depth = fsolve(@(z) eqtempProfile(e,z)-1,0, e.options);
+
+if zero_depth>-constants.Z_L & zero_depth<0
+    %figure out which index to increment to 
+    delta_z = -constants.Z_L./e.P;
+    zero_index = round(zero_depth./delta_z);
+
+    %iterate through depths, compute carbon emissions as CH4 and CO2
+    %reimann sum 
+    for i = 1:zero_index
+        c(i) = e.state(i).*ebm.HRCO2(eqtempProfile(e,-(i-0.5)*constants.Z_L./e.P), (i-0.5)./e.P);
+        m(i) = e.state(i).*ebm.HRCH4(eqtempProfile(e,-(i-0.5)*constants.Z_L./e.P), (i-0.5)./e.P);
+        losses(i) = -(c(i) + m(i));    %net carbon losses in a layer
+    end 
+
+    %account for depths with no decay for state derivative
+    missing = zeros([1, e.P-zero_index]);
+    losses = horzcat(losses, missing);
+
+    %now account for CO2 and CH4 specifics
+    mCO2 = (constants.MCO2./constants.MC).*constants.A_p.*sum(c) + (constants.MCO2./constants.MCH4).*constants.decay_CH4.*e.state(end);
+    mCH4 = (constants.MCH4./constants.MC).*constants.A_p.*sum(m) - constants.decay_CH4.*e.state(end);
+
+    emissions = [mCO2 mCH4];
+    d = horzcat(losses, emissions);
+end 
+
+
+%% idea for top 1 m repiration
+%let the top 1m fluctuate despite earlier intentions, ebm dynamics method
+onemeter_index = round(e.P./constants.Z_L);
+for i = 1:onemeter_index
+    c(i) = e.state(i).*ebm.HRCO2(eqtempProfile(e,-(i-0.5)*constants.Z_L./e.P), (i-0.5)./e.P);
+    m(i) = e.state(i).*ebm.HRCH4(eqtempProfile(e,-(i-0.5)*constants.Z_L./e.P), (i-0.5)./e.P);
+    losses(i) = -(c(i) + m(i));    %net carbon losses in a layer
+end
+missing = zeros([1, e.P-onemeter_index]);
+losses = horzcat(losses, missing);
+
+%now account for CO2 and CH4 specifics
+mCO2 = (constants.MCO2./constants.MC).*constants.A_p.*sum(c) + (constants.MCO2./constants.MCH4).*constants.decay_CH4.*e.state(end);
+mCH4 = (constants.MCH4./constants.MC).*constants.A_p.*sum(m) - constants.decay_CH4.*e.state(end);
+
+emissions = [mCO2 mCH4];
+d = horzcat(losses, emissions);
+
+
 %% Euler method 
 g = ebm(9.75, 104, 201.73, 0.6);
 g.mu = CO245data(1);

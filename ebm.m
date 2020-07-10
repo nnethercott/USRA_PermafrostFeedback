@@ -14,6 +14,7 @@ classdef ebm < dynamicprops
         %properties
         tau_s {mustBeNumeric}
         state %(mass dist, co2cum_emissions, ch4cum_emissions)
+        options
          
     end 
     
@@ -21,6 +22,7 @@ classdef ebm < dynamicprops
         %init
         function e = ebm(F_O, F_A, Q, delta)
             import constants.*;
+            e.options = optimset('Display','off');
             
             %forcings
             e.F_O = F_O;
@@ -53,7 +55,12 @@ classdef ebm < dynamicprops
             e.nu = conc_new(2);
             
             %solve implicit equation to find tau_s
-            e.tau_s = fsolve(@(t) ebm.eq_implicit(t, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta),x0);
+            [sol, err, flag] = fsolve(@(t) ebm.eq_implicit(t, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta),x0, e.options);
+            if flag<0 || flag==0
+                nextcheck = 0.5;
+                sol = fsolve(@(t) ebm.eq_implicit(t, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta),x0+nextcheck, e.options);
+            end 
+            e.tau_s = sol;
         end 
         %equilibrium temperature profile
         function T = eqtempProfile(e,z)
@@ -61,25 +68,12 @@ classdef ebm < dynamicprops
         end 
         %computes emissions and mass loss - d(state)/dt
         function d = dynamics(e)
-            %figure out where zero temp depth is 
-            zero_depth = fsolve(@(z) eqtempProfile(e,z)-1,0);
-            
-            if zero_depth>-constants.Z_L & zero_depth<0
-                %figure out which index to increment to 
-                delta_z = -constants.Z_L./e.P;
-                zero_index = round(zero_depth./delta_z);
-
-                %iterate through depths, compute carbon emissions as CH4 and CO2
-                %reimann sum 
-                for i = 1:zero_index
+            if eqtempProfile(e,0)>constants.tau_ZL
+                for i = 1:30
                     c(i) = e.state(i).*ebm.HRCO2(eqtempProfile(e,-(i-0.5)*constants.Z_L./e.P), (i-0.5)./e.P);
                     m(i) = e.state(i).*ebm.HRCH4(eqtempProfile(e,-(i-0.5)*constants.Z_L./e.P), (i-0.5)./e.P);
                     losses(i) = -(c(i) + m(i));    %net carbon losses in a layer
                 end 
-                
-                %account for depths with no decay for state derivative
-                missing = zeros([1, e.P-zero_index]);
-                losses = horzcat(losses, missing);
 
                 %now account for CO2 and CH4 specifics
                 mCO2 = (constants.MCO2./constants.MC).*constants.A_p.*sum(c) + (constants.MCO2./constants.MCH4).*constants.decay_CH4.*e.state(end);
@@ -177,7 +171,7 @@ classdef ebm < dynamicprops
             rate_co2 = @(t) (constants.gammaA_ms.*ratescale_a_ms(t) + constants.gammaS_ms.*ratescale_s_ms(t)).*constants.fms.*((1-constants.A_msan)+ constants.R_ana.*constants.A_msan.*constants.chi_ms)+(constants.gammaA_o.*ratescale_a_o(t) + constants.gammaS_o.*ratescale_s_o(t)).*constants.fo.*((1-constants.A_oan)+ constants.R_ana.*constants.A_oan.*constants.chi_o);
             %account for seasonality over a year
             months = linspace(0,11,12);
-            deltaT = 5;
+            deltaT = 8;
             for i=1:12
                 if T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11) > 0
                     rates(i) = rate_co2(T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11));
@@ -197,7 +191,7 @@ classdef ebm < dynamicprops
             rate_ch4 = @(t) (constants.gammaA_ms.*ratescale_a_ms(t) + constants.gammaS_ms.*ratescale_s_ms(t)).*constants.R_ana.*constants.fms.*constants.A_msan.*(1-constants.chi_ms) + (constants.gammaA_o.*ratescale_a_o(t) + constants.gammaS_o.*ratescale_s_o(t)).*constants.R_ana.*constants.fo.*constants.A_oan.*(1-constants.chi_o);
             %account for seasonality over a year
             months = linspace(0,11,12);
-            deltaT = 5;
+            deltaT = 8;
             for i=1:12
                 if T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11) > 0
                     rates(i) = rate_ch4(T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11));

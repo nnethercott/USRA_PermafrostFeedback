@@ -35,7 +35,7 @@ classdef constants
         k_L = 2;                                        % W m^-1 K^-1           % thermal conductivity 
         Z_L = 15;                                       % m                     % surface slab depth 
         H2 = constants.k_L./(constants.Z_L.*constants.sigma.*constants.T_R^3); % nondimensional 
-        T_ZL = -2.35;                                   % C                     % ref temp at bottom of slab    
+        T_ZL = -10.35;                                   % C                     % ref temp at bottom of slab    
         tau_ZL = (constants.T_ZL+constants.T_R)./constants.T_R; % nondimensional        % nondimensional ref temp at bottom of slab
         
     
