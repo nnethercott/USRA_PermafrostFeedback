@@ -1,5 +1,6 @@
 The goal of this repo is to implement permafrost dynamics within an existing energy balance model to capture non-linear feedback terms
 which occur as a consequence of increasing Arctic temperatures. 
 
-Current issues:
-- integral function for latitude-dependent approach is unreliable on estimating plant uptake
+All work is currently on the dev branch.
+
+Work presented in this repo is built off [An energy balance model for paleoclimate transitions](https://doi.org/10.5194/cp-15-493-2019)
