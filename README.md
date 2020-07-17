@@ -3,4 +3,4 @@ which occur as a consequence of increasing Arctic temperatures.
 
 All work is currently on the dev branch.
 
-Work presented in this repo is built off [An energy balance model for paleoclimate transitions](https://doi.org/10.5194/cp-15-493-2019)
+Work presented in this repo is built off [An energy balance model for paleoclimate transitions](https://doi.org/10.5194/cp-15-493-2019) and is a joint effort with the Department of Mathematics and Statistics at the University of Guelph.
