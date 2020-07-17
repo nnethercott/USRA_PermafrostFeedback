@@ -29,13 +29,13 @@ classdef constants
 
         %----- PERMAFROST CONSTANTS -----%
         A_tot = integral(@(x) (6371.*1000).^2.*2.*pi.*sin(x), 0, pi/6);
-        A_p = 16.*10.^6.*1000.^2;
+        A_p = 17.8.*10.^6.*1000.^2;
         Ctot = 1.095.*10.^15;                           % kg                    %estimated carbon stocks
         
         k_L = 2;                                        % W m^-1 K^-1           % thermal conductivity 
         Z_L = 15;                                       % m                     % surface slab depth 
         H2 = constants.k_L./(constants.Z_L.*constants.sigma.*constants.T_R^3); % nondimensional 
-        T_ZL = -10.35;                                   % C                     % ref temp at bottom of slab    
+        T_ZL = -3.054;                                   % C                     % ref temp at bottom of slab    
         tau_ZL = (constants.T_ZL+constants.T_R)./constants.T_R; % nondimensional        % nondimensional ref temp at bottom of slab
         
     
@@ -50,18 +50,17 @@ classdef constants
         chi_ms = 0.25; %oxidation fraction mineral under anaerobic
         chi_o = 0.6; %oxidation fraction organic under anaerobic
         R_ana = 0.1; %ratio of decomp speeds anaerobic:aerobic 
-        Q10_a = 1.5; %Q10 sensitivity aerobic
-        Q10_an = 3; %Q10 sensitivity anaerobic 
         k_a_ms = 1./((0.48+0.21)./2); %decomp rate active, mineral soils
         k_s_ms = 1./((8.76+6.42)./2); %decomp rate slow, mineral soils
         k_a_o = 1./0.41; %decom rate active, organic soils 
         k_s_o = 1./7.21; %decomp rate slow, organic soils 
+        Q10_a = 2.5; %Q10 sensitivity aerobic
+        Q10_an = 3; %Q10 sensitivity anaerobic
         
         decay_CH4 = log(2)./9.1;
         
         MCO2 = 44.01e-3;   %Molar masses of CO2, CH4 and C kg mol^-1
         MCH4 = 16.04e-3;
         MC = 12.0107e-3;
-    
     end 
 end 

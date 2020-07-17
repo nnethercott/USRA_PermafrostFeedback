@@ -1,4 +1,4 @@
-%% Import RCP data 
+%% RCP data 
 fid = fopen('ch4.txt');
 ch4data = fscanf(fid, '%f', [736 4]);
 
@@ -17,286 +17,114 @@ CO225data = reshape(CO225data, [length(CO285data) 1]);
 CO245data = reshape(CO245data, [length(CO285data) 1]);
 CO260data = reshape(CO260data, [length(CO285data) 1]);
 CO285data = reshape(CO285data, [length(CO285data) 1]);
-
-%% Information provided by Langford, year 2000
-R1 = 0.19.*10^12;  %kg a^-1
-mu2 = 76.5;    %ppm
-
-tau_ref = 0.894;
-mass_atm = 8.6454e+18;  %kg
-fCO2 = 0.977;   %fraction of permafrost carbon released as CO2
-fCH4 = 0.023;   %fraction of permafrost carbon released as CH4
-MCO2 = 44.01.*10.^-3;  %kg mol^-1
-MA = 28.97.*10.^-3;  %kg mol^-1
-MCH4 = 16.04.*10^-3;    %kg mol^-1
-k_CH4 = log(2)./9.1;    %decay rate of ch4
-
-%define the dynamics for use in difference equations 
-murate = @(tau) 10.^6.*(MA./MCO2).*(Q10(R1,tau_ref,tau,2.55).*fCO2)./mass_atm;
-nurate = @(tau,nu2) 10.^9.*(MA./MCH4).*(Q10(R1,tau_ref,tau,2.55).*fCH4)./mass_atm - k_CH4.*nu2;
-
-%we don't currently know how much permafrost CH4 is in atmosphere in year
-%2000.  So I'll just set this value to zero for the time being 
-nu2 = 0;
-%% quickly generate bifurcation diagram 
-%commented below is RCPs 2.5-6.0
-%{
-%RCP 2.5
-%arrays for running ghg sums.  Last entry always denotes total sum of that gas
-%released from permafrost.  Will have to clear these in between RCPs
-mu_2(1) = mu2;  %mu2 is initial CO2 burden from permafrost in the year 2000
-nu_2(1) = nu2;  %nu2 is initial CH4 burden from permafrost in the year 2000
-
-%variables to store RCP data
-mu_1 = CO225data(236:end);   %year 2000 values and onwards
-nu_1 = CH425data(236:end);
-
-%compute first step so we can change x0 in solver dynamically
-tau25(1) = equilibrium(9.75, 104, mu_1(1)+mu_2(1), nu_1(1)+nu_2(1), 0.6, 0.9); %eq temp in the year 2000
-mu_2(end+1) = mu_2(end) + murate(tau25(end));
-nu_2(end+1) = nu_2(end) + nurate(tau25(end), nu_2(end));
-
-
-for i = 2:length(mu_1)    %iterate over RCP starting in 2000
-    %solve for surface temp 
-    tau25(end+1) = equilibrium(9.75, 104, mu_1(i)+mu_2(end), nu_1(i)+nu_2(end), 0.6, tau25(end));
-    
-    %difference equations for permafrost ghgs, Euler method
-    mu_2(end+1) = mu_2(end) + murate(tau25(end));
-    nu_2(end+1) = nu_2(end) + nurate(tau25(end), nu_2(end));
-end 
-
-%clear sums and re-initialize 
-clear mu_2;
-clear nu_2;
-mu_2(1) = mu2;  %mu2 is initial CO2 burden from permafrost in the year 2000
-nu_2(1) = nu2;  %nu2 is initial CH4 burden from permafrost in the year 2000
-
-%RCP 4.5
-%variables to store RCP data
-mu_1 = CO245data(236:end);   %year 2000 values and onwards
-nu_1 = CH445data(236:end);
-
-%initialize array for equilibrium temps 
-tau45(1) = equilibrium(9.75, 104, mu_1(1)+mu_2(1), nu_1(1)+nu_2(1), 0.6, 0.9); %eq temp in the year 2000
-mu_2(end+1) = mu_2(end) + murate(tau45(end));
-nu_2(end+1) = nu_2(end) + nurate(tau45(end), nu_2(end));
-
-
-for i = 2:length(mu_1)    %iterate over RCP starting in 2000
-    %solve for surface temp 
-    tau45(end+1) = equilibrium(9.75, 104, mu_1(i)+mu_2(end), nu_1(i)+nu_2(end), 0.6, tau45(end));
-    
-    %difference equations for permafrost ghgs, Euler method
-    mu_2(end+1) = mu_2(end) + murate(tau45(end));
-    nu_2(end+1) = nu_2(end) + nurate(tau45(end), nu_2(end));
-end 
-
-%clear ghg sum and re-initialize 
-clear mu_2;
-clear nu_2;
-mu_2(1) = mu2;  %mu2 is initial CO2 burden from permafrost in the year 2000
-nu_2(1) = nu2;  %nu2 is initial CH4 burden from permafrost in the year 2000
-
-%RCP 6.0
-%variables to store RCP data
-mu_1 = CO260data(236:end);   %year 2000 values and onwards
-nu_1 = CH460data(236:end);
-
-%initialize array for equilibrium temps 
-tau60(1) = equilibrium(9.75, 104, mu_1(1)+mu_2(1), nu_1(1)+nu_2(1), 0.6, 0.9); %eq temp in the year 2000
-mu_2(end+1) = mu_2(end) + murate(tau60(end));
-nu_2(end+1) = nu_2(end) + nurate(tau60(end), nu_2(end));
-
-
-for i = 2:length(mu_1)    %iterate over RCP starting in 2000
-    %solve for surface temp 
-    tau60(end+1) = equilibrium(9.75, 104, mu_1(i)+mu_2(end), nu_1(i)+nu_2(end), 0.6, tau60(end));
-    
-    %difference equations for permafrost ghgs, Euler method
-    mu_2(end+1) = mu_2(end) + murate(tau60(end));
-    nu_2(end+1) = nu_2(end) + nurate(tau60(end), nu_2(end));
-end 
-
-%}
-
-%clear sums and re-initialize 
-clear mu_2;
-clear nu_2;
-mu_2(1) = mu2;  %mu2 is initial CO2 burden from permafrost in the year 2000
-nu_2(1) = nu2;  %nu2 is initial CH4 burden from permafrost in the year 2000
-
-%RCP 8.5 and control 
-%variables to store RCP data
-mu_1 = CO285data(236:end);   %year 2000 values and onwards
-nu_1 = CH485data(236:end);
-
-%initialize array for equilibrium temps 
-tau85(1) = equilibrium(9.75, 104, mu_1(1)+mu_2(1), nu_1(1)+nu_2(1), 0.6, 0.9); %eq temp in the year 2000
-mu_2(end+1) = mu_2(end) + murate(tau85(end));
-nu_2(end+1) = nu_2(end) + nurate(tau85(end), nu_2(end));
-
-
-for i = 2:length(mu_1)    %iterate over RCP starting in 2000
-    %solve for surface temp 
-    tau85(end+1) = equilibrium(9.75, 104, mu_1(i)+mu_2(end), nu_1(i)+nu_2(end), 0.6, tau85(end));
-    
-    %difference equations for permafrost ghgs, Euler method
-    mu_2(end+1) = mu_2(end) + murate(tau85(end));
-    nu_2(end+1) = nu_2(end) + nurate(tau85(end), nu_2(end));
-end 
 %%
-tau85C(1) = equilibrium(9.75, 104, mu_1(1)+mu_2(1), nu_1(1)+nu_2(1), 0.6, 0.9);
+carbon = CO285data;
+methane = CH485data;
 
-for i = 2:length(mu_1)    %iterate over RCP starting in 2000
-    tau85C(end+1) = equilibrium(9.75, 104, mu_1(i), nu_1(i), 0.6, tau85C(end));
-end 
+%BAND PROPERTIES
+Q6065 = 225.0452;
+Q6570 = 204.9277;
+Q7075 = 191.2693; 
 
-for i = 1:length(mu_1)    %iterate over RCP starting in 2000
-    tau85C1(i) = equilibrium(9.75, 104, mu_1(i), nu_1(i), 0.6, 1);
-    tau85C103(i) = equilibrium(9.75, 104, mu_1(i), nu_1(i), 0.6, 1.03);
-end 
+A6065 = 1.0273e+13; 
+A6570 = 8.5146e+12;
+A7075 = 6.6906e+12;
+Atot = A6065+A6570+A7075;
 
-%% Plot
-t = linspace(2000, 2000+length(tau85), length(tau85));
-plot(t, tau85, 'b')
-hold on 
-plot(t, tau85C, 'r')
-hold on 
-plot(t, tau85C1, 'r')
-hold on 
-plot(t, tau85C103, 'r')
-title('RCP 8.5, Permafrost vs Control');
-ylim([0.9 1.15])
-xlim([t(1) t(end)])
-ylabel('nondimensional surface temperature');
-xlabel('year');
-legend('permafrost', 'no permafrost');
+f6065 = A6065./Atot;
+f6570 = A6570./Atot;
+f7075 = A7075./Atot;
 
+%instantiate ebm object and prescribe forcings 
+e6065 = ebm(9.75, 104, Q6065, 0.6);
+e6570 = ebm(9.75, 104, Q6570, 0.6);
+e7075 = ebm(9.75, 104, Q7075, 0.6);
 
-%% fUNCTIONs
-[sol, err, flag] = fsolve(@(t) EnergyBalanceModelArctic(t, 9.75, 104, CO285data(245), CH485data(245), 0.6), 1.03)
+%% Euler method
+x0=0.9;
 
-function F = EnergyBalanceModelArctic(tau, F_O, F_A, mu, nu, delta)
-% This function is the energy balance model for the Arctic region (70N)
+%initial forcings: 
+e6065.mu = carbon(1);
+e6065.nu = methane(1);
+e6570.mu = carbon(1);
+e6570.nu = methane(1);
+e7075.mu = carbon(1);
+e7075.nu = methane(1);
 
-% CONSTANTS
-T_R = 273.15;                                   % K                     % reference temperature, equal to 0 Celcius
-betaconst = 0.63;                               % nondimensional        % fraction of atmospheric irradiance hitting surface           
-sigma = 5.670367*10^-8;                         % W/(m^2K^4)            % Stefan-Boltzmann constant 
-omega = 0.01;                                   % nondimensional        % albedo switch function smoothness
-Gamma = 6.49*10^-3;                             % K/m                   % standard ICAO lapse rate for the troposphere
-gamma = Gamma/T_R;                              % 1/m                   % scaled lapse rate for non-dimensional system
-k_C = 0.0694;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for carbon dioxide
-k_W = 0.05905;                                  % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
-k_M = 1.4022;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for methane                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
-Z_P = 9000;                                     % m                     % troposphere height      
-L_v = 2.2558*10^6;                              % m^2/s^2               % latent heat of vapourization for water
-R = 8.3144598;                                  % J/(mol K)             % universal gas constant
-R_W = 461.4;                                    % m^2/(s^2 K)           % specific gas constant of water vapour
-alpha_w = 0.08;                                 % nondimensional        % warm (ocean) albedo
-alpha_c = 0.7;                                  % nondimensional        % cold (ice) albedo
-Q = 173.2;                                      % W/m^2                 % incoming solar radiation at 70N
-q = Q/(sigma*T_R^4);                            % nondimensional        % scaled incoming solar radiation at 70N
-c_P = 1004;                                     % J/(K kg)              % specific heat capacity of dry atmopshere at T_R
-C_LH = 1.0*10^-3;                               % nondimensional        % latent heat bulk exchange coefficient 
-C_SH = 1.0*10^-3;                               % nondimensional        % sensible heat bulk exchange coefficient
-U_r = 4;                                        % m/s                   % average horizontal wind speed
-z_r = 600;                                      % m                     % average height of planetary boundary layer
-P_sat = 611.2;                                  % Pa = kg/(m s^2)       % saturated vapour pressure at T_R
-rho_wsat = 4.849*10^-3;                         % kg/m^3                % saturated vapour density at T_R
-P_0 = 101325.00;                                % Pa                    % pressure at surface 
-M =  0.0289644;                                 % kg/mol                % molecular weight of dry air
-G_W1 = L_v/(R_W*T_R);                           % nondimensional        % atmospheric water vapour absorption coefficient 1
+%solve and store tau_s
+eqtemp(e6065, x0);
+eqtemp(e6570, x0);
+eqtemp(e7075, x0);
 
+tau6065(1) = e6065.tau_s;
+tau6570(1) = e6570.tau_s;
+tau7075(1) = e7075.tau_s;
 
-% FUNCTIONS
-T_S = tau*T_R;                                  % K                     % un-scaled surface temperature for use in SH and LH
-% density of atmosphere (kg/m^3) at the top of PBL as a function of surface temperature
-rho = P_0.*M./(R.*(T_S-Gamma.*z_r));                        
-% vertical sensible heat transport (W/m^2) due to turbulent flux in the PBL
-SH = c_P.*rho.*C_SH.*U_r.*(Gamma.*z_r);
-% vertical latent heat transport (W/m^2) due to turbulent flux in the PBL
-LE = L_v.*C_LH.*U_r./(R_W.*(T_S-Gamma.*z_r)).*P_sat.*(exp(G_W1.*(T_S - T_R)./T_S) - delta.*exp(G_W1.*(T_S - Gamma.*z_r -T_R)./(T_S - Gamma.*z_r)));
-% combined vertical turbulent heat transport in the PBL
-F_C = LE + SH;
+%sum masses so each has same total CO2 and CH4
+mass(1,:) = e6065.state(end-1:end); %could've used any ebm
 
-f_A  = F_A./(sigma.*T_R.^4);                    % nondimensional        % scaled horizontal atmospheric heat transport
-f_O  = F_O./(sigma.*T_R.^4);                    % nondimensional        % scaled horizontal aoceanic heat transport
-f_C = F_C./(sigma.*T_R.^4);                     % nondimensional        % scaled vertical turbulent heat flux heat transport
+%update states
+%dynamics
+de6065 = dynamics(e6065);
+m6065 = de6065(end-1:end).*[f6065 f6065];
+de6570 = dynamics(e6570);
+m6570 = de6570(end-1:end).*[f6570 f6570];
+de7075 = dynamics(e7075);
+m7075 = de7075(end-1:end).*[f7075 f7075];
 
-% albedo switch function (nondimensional)
-a = 1./2.*((alpha_w + alpha_c)+(alpha_w-alpha_c).*tanh((tau-1)./omega));    
+M = m6065 + m6570 + m7075;
 
-eta_Cl = 0.3736;                               
-G_c = 1.52./(10.^6).*k_C.*1.03.*10.^4;         
-eta_C1 = 1 - exp(-G_c.*mu);                           
-G_M = 0.554./(10.^9).*k_M.*1.03.*10.^4;
-eta_M = 1 - exp(-G_M.*nu);
-G_W2 = k_W.*rho_wsat./gamma;                   
-wvinteg1 = @(w) 1./w.*exp(G_W1.*(w-1)./w);     
-eta_W1 = 1 - exp(-delta.*G_W2.*integral(wvinteg1, tau-(gamma.*Z_P), tau));   
-eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl).*(1-eta_M); 
+%account for work above 
+D6065 = de6065;
+D6065(end-1:end) = M;
+D6570 = de6570;
+D6570(end-1:end) = M;
+D7075 = de7075;
+D7075(end-1:end) = M;
+e6065.state = e6065.state + D6065;
+e6570.state = e6570.state + D6570;
+e7075.state = e7075.state + D7075;
 
-% entire energy balance model
-F = (1-a).*q.*(1 - 0.2324 - 0.1212) + f_O - tau.^4 - f_C + betaconst.*(0.2324.*q + f_A + f_C + eta.*tau.^4);
-end
-function e = equilibrium(F_O, F_A, mu, nu, delta, x0)
-options = optimset('Display','off');
-[sol, err, flag] = fsolve(@(t) EnergyBalanceModelArctic(t, F_O, F_A, mu, nu, delta), x0, options);
-if abs(EnergyBalanceModelArctic(sol, F_O, F_A, mu, nu, delta))>1e-6
-    sol = fsolve(@(t) EnergyBalanceModelArctic(t, F_O, F_A, mu, nu, delta), x0+0.5, options);
-end
-e = sol;
-end 
-function r2 = Q10(R1, tau1, tau2, sensitivity)
-%nondimensional version
-    r2 = R1.*(sensitivity.^(273.15.*(tau2-tau1)./10));
-end
-function c = concentration(masses, initial_concentrations)
-%{
-Computes new concentrations for CO2 and CH4 given the mass of each gas 
-input to the atmosphere and the previous global concentrations.
+for i = 1:length(carbon)-1
+    %apply forcings 
+    e6065.mu = carbon(i+1);
+    e6065.nu = methane(i+1);
+    e6570.mu = carbon(i+1);
+    e6570.nu = methane(i+1);
+    e7075.mu = carbon(i+1);
+    e7075.nu = methane(i+1);
+    
+    %solve and store tau_s
+    eqtemp(e6065, e6065.tau_s);
+    eqtemp(e6570, e6570.tau_s);
+    eqtemp(e7075, e7075.tau_s);
 
-Args:  masses - tuple containing added mass of carbon in the form of CO2 
-                and CH4 ([mCO2 mCH4])
-       initial_concentrations - tuple of concentrations before permafrost
-                                respiration, [mu_i nu_i] in units [ppm ppb]
+    tau6065(end+1) = e6065.tau_s;
+    tau6570(end+1) = e6570.tau_s;
+    tau7075(end+1) = e7075.tau_s;
+    
+    %update state
+    %dynamics
+    de6065 = dynamics(e6065);
+    m6065 = de6065(end-1:end).*[f6065 f6065];
+    de6570 = dynamics(e6570);
+    m6570 = de6570(end-1:end).*[f6570 f6570];
+    de7075 = dynamics(e7075);
+    m7075 = de7075(end-1:end).*[f7075 f7075];
 
-Returns: c - tuple of new global atmospheric concentrations, 
-             [mu_f nu_f] in units [ppm ppb]
-%}
+    M = m6065 + m6570 + m7075;
 
-cco2_i = initial_concentrations(1); %initial concentration CO2 (ppm)
-cch4_i = initial_concentrations(2); %initial concentration CH4 (ppb)
-
-MCO2 = 44.01e-3;   %Molar masses of CO2, CH4, C, O, H and atmosphere kg mol^-1
-MCH4 = 16.04e-3;
-MC = 12.0107e-3;
-M = 28.97e-3; 
-
-mco2added = masses(1);
-mch4added = masses(2);
-
-cco2 = cco2_i./(10.^6);  %ppm to fraction
-cch4 = cch4_i./(10.^9);  %ppb to fraction
-rho = 1.2;   %atmospheric density 
-
-%atmosphere volume calculation
-radius_troposphere = @(x) 16000.*x./pi + 9000 + 6371.*1000;
-volume = 2.*integral2(@(x,y) (1/3).*sin(x).*(radius_troposphere(x).^3 - (6371.*1000).^3), 0, pi./2, 0, 2.*pi);
-
-M_atm = rho.*volume; %total mass of atmosphere
-mco2initial = (MCO2./M).*cco2.*M_atm; %initial mass of CO2 in atmosphere using mol to mass ratio
-mch4initial = (MCH4./M).*cch4.*M_atm; %initial mass of CH4 in atmosphere
-
-M_atmnew = M_atm + mco2added + mch4added;   %new mass of atmosphere
-mco2new = mco2initial + mco2added;  %new mass of CO2 in atmosphere
-mch4new = mch4initial + mch4added;  %new mass of CH4 in atmosphere
-
-co2ratio = (M./MCO2).*(mco2new./M_atmnew);  %mass concentration to mol concentration
-ch4ratio = (M./MCH4).*(mch4new./M_atmnew);  
-
-c(1) = co2ratio.*10.^6; %fraction to ppm
-c(2) = ch4ratio.*10.^9; %fraction to ppb
+    %account for work above 
+    D6065 = de6065;
+    D6065(end-1:end) = M;
+    D6570 = de6570;
+    D6570(end-1:end) = M;
+    D7075 = de7075;
+    D7075(end-1:end) = M;
+    e6065.state = e6065.state + D6065;
+    e6570.state = e6570.state + D6570;
+    e7075.state = e7075.state + D7075;
+    
+    mass(end+1,:) = e6065.state(end-1:end);
+    mass(end)
 end

@@ -1,4 +1,4 @@
-%% import RCP data 
+%% RCP data 
 fid = fopen('ch4.txt');
 ch4data = fscanf(fid, '%f', [736 4]);
 
@@ -22,12 +22,15 @@ CO285data = reshape(CO285data, [length(CO285data) 1]);
 %THIS IMPACTS DERIVATIVE CALCULATIONS AND PREDICTS NEGATIVE SOIL CARBON
 %RESOLVE THIS BY CATCHING NO SOL IN EBM CLASS "DYNAMICS" FUNCTION
 
-carbon = CO260data;
-methane = CH460data;
+carbon = CO285data;
+methane = CH485data;
 
-%instantiate "ebm" object and perscribe forcings 
+%instantiate ebm object and prescribe forcings 
 e = ebm(9.75, 104, 201.73, 0.6);
+e.Q_10 = 2.55;
+%%
 x0=0.9;
+
 %-------- RK3 ---------%
 %     FIRST ITERATION
 % ------------------------
@@ -146,5 +149,4 @@ for i = 1:length(carbon)-1
     tau_g(end+1) = g.tau_s;
     %update state
     g.state = g.state + dynamics(g);
-    g.tau_s
 end

@@ -1,7 +1,7 @@
 %should output derivative of our state variable and mass should be updated 
 %in loop during the AB3 process
 
-classdef ebm < dynamicprops
+classdef ebm < matlab.mixin.Copyable
     properties  %DECLARE PROPERTIES OF OUR EBM OBJECT 
         %forcings 
         F_O {mustBeNumeric}
@@ -15,14 +15,16 @@ classdef ebm < dynamicprops
         tau_s {mustBeNumeric}
         state %(mass dist, co2cum_emissions, ch4cum_emissions)
         options
-         
+        P %number of pools      
+        Q_10 
+        
     end 
     
     methods
         %init
         function e = ebm(F_O, F_A, Q, delta)
-            import constants.*;
             e.options = optimset('Display','off');
+            e.Q_10 = constants.Q10_a;
             
             %forcings
             e.F_O = F_O;
@@ -35,7 +37,6 @@ classdef ebm < dynamicprops
             e.nu = 1875;
             
             %initial carbon distribution, 30 pools uniform 
-            e.addprop('P')
             e.P = 30;
             Cdist0 = (constants.Ctot./constants.A_p).*ones([1 e.P])./e.P;
             
@@ -66,28 +67,24 @@ classdef ebm < dynamicprops
         function T = eqtempProfile(e,z)
             T = ebm.tempgrad(e.tau_s, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta, z);
         end 
-        %computes emissions and mass loss - d(state)/dt
+        %computes emissions and mass loss -- d(state)/dt
         function d = dynamics(e)
-            if eqtempProfile(e,0)>constants.tau_ZL
-                for i = 1:30
-                    c(i) = e.state(i).*ebm.HRCO2(eqtempProfile(e,-(i-0.5)*constants.Z_L./e.P), (i-0.5)./e.P);
-                    m(i) = e.state(i).*ebm.HRCH4(eqtempProfile(e,-(i-0.5)*constants.Z_L./e.P), (i-0.5)./e.P);
-                    losses(i) = -(c(i) + m(i));    %net carbon losses in a layer
-                end 
-
-                %now account for CO2 and CH4 specifics
-                mCO2 = (constants.MCO2./constants.MC).*constants.A_p.*sum(c) + (constants.MCO2./constants.MCH4).*constants.decay_CH4.*e.state(end);
-                mCH4 = (constants.MCH4./constants.MC).*constants.A_p.*sum(m) - constants.decay_CH4.*e.state(end);
-            
-                emissions = [mCO2 mCH4];
-                d = horzcat(losses, emissions);
-            else 
-                d = zeros([1 32]);
+            for i = 1:30
+                c(i) = e.state(i).*ebm.HRCO2(eqtempProfile(e,((i-0.5)./e.P).*(3./constants.Z_L)), ((i-0.5)./e.P).*(3./constants.Z_L), e.Q_10);
+                m(i) = e.state(i).*ebm.HRCH4(eqtempProfile(e,((i-0.5)./e.P).*(3./constants.Z_L)), ((i-0.5)./e.P).*(3./constants.Z_L), e.Q_10);
+                losses(i) = -(c(i) + m(i));    %net carbon losses in a layer
             end 
+
+            %now account for CO2 and CH4 specifics
+            mCO2 = (constants.MCO2./constants.MC).*constants.A_p.*sum(c) + (constants.MCO2./constants.MCH4).*constants.decay_CH4.*e.state(end);
+            mCH4 = (constants.MCH4./constants.MC).*constants.A_p.*sum(m) - constants.decay_CH4.*e.state(end);
+
+            emissions = [mCO2 mCH4];
+            d = horzcat(losses, emissions);
         end  
     end 
     
-    methods (Static)    %CHANGE ACCESS TO PRIVATE LATER
+    methods (Static, Access = private)
         %generic functions
         function F = eq_implicit(tau, F_O, F_A, Q, mu, nu, delta)
             T_S = tau*constants.T_R;                             
@@ -122,9 +119,7 @@ classdef ebm < dynamicprops
             %final step 
             F = constants.tau_ZL - tau + (1).*(f_O - (1-constants.betaconst).*f_C + (1-a).*q.*(1 - 0.2324 - 0.1212) - (1-constants.betaconst.*eta).*tau.^4 + constants.betaconst.*(f_A + 0.2324.*q))./constants.H2;
         end 
-        function T = tempgrad(tau, F_O, F_A, Q, mu, nu, delta, z)
-            zeta = z./constants.Z_L;
-       
+        function T = tempgrad(tau, F_O, F_A, Q, mu, nu, delta, zeta)
             T_S = tau*constants.T_R;                             
             % density of atmosphere (kg/m^3) at the top of PBL as a function of surface temperature
             rho = constants.P_0.*constants.M./(constants.R.*(T_S-constants.Gamma.*constants.z_r));                        
@@ -155,23 +150,23 @@ classdef ebm < dynamicprops
             eta = 1 - (1-eta_C1).*(1-eta_W1).*(1-eta_Cl).*(1-eta_M);
             
             %Final step
-            T = constants.tau_ZL + (zeta+1).*(f_O - (1-constants.betaconst).*f_C + (1-a).*q.*(1 - 0.2324 - 0.1212) - (1-constants.betaconst.*eta).*tau.^4 + constants.betaconst.*(f_A + 0.2324.*q))./constants.H2;
+            T = constants.tau_ZL + (1-zeta).*(f_O - (1-constants.betaconst).*f_C + (1-a).*q.*(1 - 0.2324 - 0.1212) - (1-constants.betaconst.*eta).*tau.^4 + constants.betaconst.*(f_A + 0.2324.*q))./constants.H2;
         end 
         function r2 = Q10(r1, t1, t2, sensitivity)
             r2 = r1.*(sensitivity.^((t2-t1)./10));
         end
-        function r = HRCO2(tau, zeta)
+        function r = HRCO2(tau, zeta, Q_10)
             T = tau.*constants.T_R-constants.T_R;
-            ratescale_a_ms = @(T) ebm.Q10(constants.k_a_ms, 5, T, constants.Q10_a);
-            ratescale_s_ms = @(T) ebm.Q10(constants.k_s_ms, 5, T, constants.Q10_a);
-            ratescale_a_o = @(T) ebm.Q10(constants.k_a_o, 5, T, constants.Q10_a);
-            ratescale_s_o = @(T) ebm.Q10(constants.k_s_o, 5, T, constants.Q10_a);
+            ratescale_a_ms = @(T) ebm.Q10(constants.k_a_ms, 5, T, Q_10);
+            ratescale_s_ms = @(T) ebm.Q10(constants.k_s_ms, 5, T, Q_10);
+            ratescale_a_o = @(T) ebm.Q10(constants.k_a_o, 5, T, Q_10);
+            ratescale_s_o = @(T) ebm.Q10(constants.k_s_o, 5, T, Q_10);
 
 
             rate_co2 = @(t) (constants.gammaA_ms.*ratescale_a_ms(t) + constants.gammaS_ms.*ratescale_s_ms(t)).*constants.fms.*((1-constants.A_msan)+ constants.R_ana.*constants.A_msan.*constants.chi_ms)+(constants.gammaA_o.*ratescale_a_o(t) + constants.gammaS_o.*ratescale_s_o(t)).*constants.fo.*((1-constants.A_oan)+ constants.R_ana.*constants.A_oan.*constants.chi_o);
             %account for seasonality over a year
             months = linspace(0,11,12);
-            deltaT = 8;
+            deltaT = 10;
             for i=1:12
                 if T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11) > 0
                     rates(i) = rate_co2(T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11));
@@ -181,17 +176,17 @@ classdef ebm < dynamicprops
             end 
             r = mean(rates);
         end 
-        function r = HRCH4(tau, zeta)
+        function r = HRCH4(tau, zeta, Q_10)
             T = tau.*constants.T_R-constants.T_R;
-            ratescale_a_ms = @(T) ebm.Q10(constants.k_a_ms, 5, T, constants.Q10_a);
-            ratescale_s_ms = @(T) ebm.Q10(constants.k_s_ms, 5, T, constants.Q10_a);
-            ratescale_a_o = @(T) ebm.Q10(constants.k_a_o, 5, T, constants.Q10_a);
-            ratescale_s_o = @(T) ebm.Q10(constants.k_s_o, 5, T, constants.Q10_a);
+            ratescale_a_ms = @(T) ebm.Q10(constants.k_a_ms, 5, T, Q_10);
+            ratescale_s_ms = @(T) ebm.Q10(constants.k_s_ms, 5, T, Q_10);
+            ratescale_a_o = @(T) ebm.Q10(constants.k_a_o, 5, T, Q_10);
+            ratescale_s_o = @(T) ebm.Q10(constants.k_s_o, 5, T, Q_10);
 
             rate_ch4 = @(t) (constants.gammaA_ms.*ratescale_a_ms(t) + constants.gammaS_ms.*ratescale_s_ms(t)).*constants.R_ana.*constants.fms.*constants.A_msan.*(1-constants.chi_ms) + (constants.gammaA_o.*ratescale_a_o(t) + constants.gammaS_o.*ratescale_s_o(t)).*constants.R_ana.*constants.fo.*constants.A_oan.*(1-constants.chi_o);
             %account for seasonality over a year
             months = linspace(0,11,12);
-            deltaT = 8;
+            deltaT = 10;
             for i=1:12
                 if T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11) > 0
                     rates(i) = rate_ch4(T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11));
