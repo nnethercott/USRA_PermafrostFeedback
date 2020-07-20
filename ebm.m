@@ -57,9 +57,9 @@ classdef ebm < matlab.mixin.Copyable
             
             %solve implicit equation to find tau_s
             [sol, err, flag] = fsolve(@(t) ebm.eq_implicit(t, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta),x0, e.options);
-            if flag<0 || flag==0
-                nextcheck = 0.5;
-                sol = fsolve(@(t) ebm.eq_implicit(t, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta),x0+nextcheck, e.options);
+            if flag<0
+                increment = 0.5;
+                sol = fsolve(@(t) ebm.eq_implicit(t, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta),x0+increment, e.options);
             end 
             e.tau_s = sol;
         end 
@@ -70,8 +70,9 @@ classdef ebm < matlab.mixin.Copyable
         %computes emissions and mass loss -- d(state)/dt
         function d = dynamics(e)
             for i = 1:30
-                c(i) = e.state(i).*ebm.HRCO2(eqtempProfile(e,((i-0.5)./e.P).*(3./constants.Z_L)), ((i-0.5)./e.P).*(3./constants.Z_L), e.Q_10);
-                m(i) = e.state(i).*ebm.HRCH4(eqtempProfile(e,((i-0.5)./e.P).*(3./constants.Z_L)), ((i-0.5)./e.P).*(3./constants.Z_L), e.Q_10);
+                zeta = ((i-0.5)./e.P).*(3./constants.Z_L);
+                c(i) = e.state(i).*ebm.HRCO2(eqtempProfile(e,zeta), zeta, e.Q_10);
+                m(i) = e.state(i).*ebm.HRCH4(eqtempProfile(e,zeta), zeta, e.Q_10);
                 losses(i) = -(c(i) + m(i));    %net carbon losses in a layer
             end 
 
@@ -106,7 +107,7 @@ classdef ebm < matlab.mixin.Copyable
             a = 1./2.*((constants.alpha_w + constants.alpha_c)+(constants.alpha_w-constants.alpha_c).*tanh((tau-1)./constants.omega));    
 
             %eta
-            eta_Cl = 0.3736;                               
+            eta_Cl = constants.eta_Cl;                               
             G_c = 1.52./(10.^6).*constants.k_C.*1.03.*10.^4;         
             eta_C1 = 1 - exp(-G_c.*mu);                           
             G_M = 0.554./(10.^9).*constants.k_M.*1.03.*10.^4;

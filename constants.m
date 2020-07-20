@@ -7,9 +7,13 @@ classdef constants
         omega = 0.01;                                   % nondimensional        % albedo switch function smoothness
         Gamma = 6.49*10^-3;                             % K/m                   % standard ICAO lapse rate for the troposphere
         gamma = constants.Gamma/constants.T_R;          % 1/m                   % scaled lapse rate for non-dimensional system
-        k_C = 0.0694;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for carbon dioxide
-        k_W = 0.05905;                                  % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
-        k_M = 1.4022;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for methane 
+        
+        %CALIBRATED ABSORPTION TERMS
+        k_C = 0.0766;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for carbon dioxide
+        k_W = 0.0593;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
+        k_M = 1.4968;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for methane 
+        eta_Cl = 0.3736                                 % nondimensional        % absorption due to clouds 
+        
         Z_P = 9000;                                     % m                     % troposphere height      
         L_v = 2.2558*10^6;                              % m^2/s^2               % latent heat of vapourization for water
         R = 8.3144598;                                  % J/(mol K)             % universal gas constant
@@ -35,7 +39,7 @@ classdef constants
         k_L = 2;                                        % W m^-1 K^-1           % thermal conductivity 
         Z_L = 15;                                       % m                     % surface slab depth 
         H2 = constants.k_L./(constants.Z_L.*constants.sigma.*constants.T_R^3); % nondimensional 
-        T_ZL = -3.054;                                   % C                     % ref temp at bottom of slab    
+        T_ZL = -3.054;                                  % C                     % ref temp at bottom of slab    
         tau_ZL = (constants.T_ZL+constants.T_R)./constants.T_R; % nondimensional        % nondimensional ref temp at bottom of slab
         
     
