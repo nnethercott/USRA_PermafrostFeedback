@@ -161,25 +161,7 @@ classdef rcpsim < handle
             end
             tauseries = tau_s;
         end 
-        %ab3 for rcp pathways
-        function tauseries = RCPrk3ab3(r, pathway, years)
-            start_index = years(1)-1764;
-            end_index = years(2)-1764;
-             if pathway == "2.6"
-                carbon = r.CO226data(start_index:end_index);
-                methane = r.CH426data(start_index:end_index);
-            elseif pathway == "4.5"
-                carbon = r.CO245data(start_index:end_index);
-                methane = r.CH445data(start_index:end_index);
-            elseif pathway == "6.0"
-                carbon = r.CO260data(start_index:end_index);
-                methane = r.CH460data(start_index:end_index);
-            elseif pathway == "8.5"
-                carbon = r.CO285data(start_index:end_index);
-                methane = r.CH485data(start_index:end_index);
-             end 
-            tauseries = rk3ab3(r,carbon,methane);
-        end 
+        
         %TODO: add option for euler method 
         function tauseries = NoPermafrost(r, carbon, methane)
             clear tau_s;
@@ -215,24 +197,6 @@ classdef rcpsim < handle
                 %}
             end
             tauseries = tau_s;
-        end 
-        function tauseries = RCPNoPermafrost(r, pathway, years)
-            start_index = years(1) -1764;
-            end_index = years(2) - 1764;
-             if pathway == "2.6"
-                carbon = r.CO226data(start_index:end_index);
-                methane = r.CH426data(start_index:end_index);
-            elseif pathway == "4.5"
-                carbon = r.CO245data(start_index:end_index);
-                methane = r.CH445data(start_index:end_index);
-            elseif pathway == "6.0"
-                carbon = r.CO260data(start_index:end_index);
-                methane = r.CH460data(start_index:end_index);
-            elseif pathway == "8.5"
-                carbon = r.CO285data(start_index:end_index);
-                methane = r.CH485data(start_index:end_index);
-             end 
-            tauseries = NoPermafrost(r,carbon,methane);
         end 
     end    
 end 
