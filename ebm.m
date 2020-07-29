@@ -33,8 +33,8 @@ classdef ebm < matlab.mixin.Copyable
             e.delta = delta;
             
             %default params (so you can test functions right away)
-            e.mu = 407.4;
-            e.nu = 1875;
+            e.mu = 0;
+            e.nu = 0;
             
             %initial carbon distribution, 30 pools uniform 
             e.P = 30;
@@ -58,7 +58,7 @@ classdef ebm < matlab.mixin.Copyable
             %solve implicit equation to find tau_s
             [sol, err, flag] = fsolve(@(t) ebm.eq_implicit(t, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta),x0, e.options);
             if flag<0
-                increment = 0.5;
+                increment = 0.25;
                 sol = fsolve(@(t) ebm.eq_implicit(t, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta),x0+increment, e.options);
             end 
             e.tau_s = sol;
@@ -69,7 +69,7 @@ classdef ebm < matlab.mixin.Copyable
         end 
         %computes emissions and mass loss -- d(state)/dt
         function d = dynamics(e)
-            for i = 1:30
+            for i = 1:e.P
                 zeta = ((i-0.5)./e.P).*(3./constants.Z_L);
                 c(i) = e.state(i).*ebm.HRCO2(eqtempProfile(e,zeta), zeta, e.Q_10);
                 m(i) = e.state(i).*ebm.HRCH4(eqtempProfile(e,zeta), zeta, e.Q_10);
@@ -85,7 +85,7 @@ classdef ebm < matlab.mixin.Copyable
         end  
     end 
     
-    methods (Static, Access = private)
+    methods (Static, Access=private)
         %generic functions
         function F = eq_implicit(tau, F_O, F_A, Q, mu, nu, delta)
             T_S = tau*constants.T_R;                             
@@ -167,10 +167,10 @@ classdef ebm < matlab.mixin.Copyable
             rate_co2 = @(t) (constants.gammaA_ms.*ratescale_a_ms(t) + constants.gammaS_ms.*ratescale_s_ms(t)).*constants.fms.*((1-constants.A_msan)+ constants.R_ana.*constants.A_msan.*constants.chi_ms)+(constants.gammaA_o.*ratescale_a_o(t) + constants.gammaS_o.*ratescale_s_o(t)).*constants.fo.*((1-constants.A_oan)+ constants.R_ana.*constants.A_oan.*constants.chi_o);
             %account for seasonality over a year
             months = linspace(0,11,12);
-            deltaT = 10;
+            deltaT = 12;
             for i=1:12
                 if T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11) > 0
-                    rates(i) = rate_co2(T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11));
+                    rates(i) = rate_co2(T+(1-zeta).*deltaT.*sin(months(i)*2*pi./12));
                 else 
                     rates(i) = 0;
                 end
@@ -187,10 +187,10 @@ classdef ebm < matlab.mixin.Copyable
             rate_ch4 = @(t) (constants.gammaA_ms.*ratescale_a_ms(t) + constants.gammaS_ms.*ratescale_s_ms(t)).*constants.R_ana.*constants.fms.*constants.A_msan.*(1-constants.chi_ms) + (constants.gammaA_o.*ratescale_a_o(t) + constants.gammaS_o.*ratescale_s_o(t)).*constants.R_ana.*constants.fo.*constants.A_oan.*(1-constants.chi_o);
             %account for seasonality over a year
             months = linspace(0,11,12);
-            deltaT = 10;
-            for i=1:12
+            deltaT = 12;
+            for i=1:11
                 if T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11) > 0
-                    rates(i) = rate_ch4(T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11));
+                    rates(i) = rate_ch4(T+(1-zeta).*deltaT.*sin(months(i)*2*pi./12));
                 else 
                     rates(i) = 0;
                 end

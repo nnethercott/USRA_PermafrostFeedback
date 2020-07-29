@@ -14,6 +14,9 @@ classdef rcpsim < handle
         CH445data
         CH460data
         CH485data
+        
+        %numerical stuff
+        step
     end 
     methods 
         %init
@@ -34,8 +37,11 @@ classdef rcpsim < handle
             %default FO and FA arrays
             r.FO_arr = r.ebm.F_O.*ones([1 length(r.CO285data)]);
             r.FA_arr = r.ebm.F_A.*ones([1 length(r.CO285data)]);
+            
+            %step
+            r.step = 1;
         end 
-        %ab3 process for generic CO2, CH4 pathways
+        %euler and ab3 processes for permafrost 
         function tauseries = rk3ab3(r, carbon, methane)
             clear state;
             clear state_derivatives;
@@ -44,37 +50,47 @@ classdef rcpsim < handle
             
             e = copy(r.ebm);
             x0=0.9;
+            
+            %interpolation stuff for variable step size, small decimal
+            %handles NaN exception when x is an int
+            interpCO2 = @(x) carbon(floor(x)) + (x - floor(x)).*(carbon(ceil(x)) - carbon(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            interpCH4 = @(x) methane(floor(x)) + (x - floor(x)).*(methane(ceil(x)) - methane(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            interpFO = @(x) r.FO_arr(floor(x)) + (x - floor(x)).*(r.FO_arr(ceil(x)) - r.FO_arr(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            interpFA = @(x) r.FA_arr(floor(x)) + (x - floor(x)).*(r.FA_arr(ceil(x)) - r.FA_arr(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            
 
-            %-------- RK3 ---------%
+            %---------------------- RK3 ---------------------------%
             %     FIRST ITERATION
             % ------------------------
+            tracking_var = 1;
+            
             %initial RCP forcings, also prescribe FO and FA
-            e.mu = carbon(1);
-            e.nu = methane(1);
-            e.F_O = r.FO_arr(1);
-            e.F_A = r.FA_arr(1);
+            e.mu = interpCO2(tracking_var);
+            e.nu = interpCH4(tracking_var);
+            e.F_O = interpFO(tracking_var);
+            e.F_A = interpFA(tracking_var);
             eqtemp(e,x0);  %internal update to compute tau_s 
             tau_s(1) = e.tau_s;
             u0 = e.state;
-            k1 = dynamics(e);
+            k1 = r.step.*dynamics(e);
 
             %interpolate RCP projections and prescribe forcings 
-            e.mu = carbon(1)+(1./3).*(carbon(2)-carbon(1));
-            e.nu = methane(1)+(1./3).*(methane(2)-methane(1));
-            e.F_O = r.FO_arr(1)+(1./3).*(r.FO_arr(2)-r.FO_arr(1));
-            e.F_A = r.FA_arr(1)+(1./3).*(r.FA_arr(2)-r.FA_arr(1));
+            e.mu = interpCO2(tracking_var)+(1./3).*(interpCO2(tracking_var+r.step)-interpCO2(tracking_var));
+            e.nu = interpCH4(tracking_var)+(1./3).*(interpCH4(tracking_var+r.step)-interpCH4(tracking_var));
+            e.F_O = interpFO(tracking_var)+(1./3).*(interpFO(tracking_var+r.step)-interpFO(tracking_var));
+            e.F_A = interpFA(tracking_var)+(1./3).*(interpFA(tracking_var+r.step)-interpFA(tracking_var));
             e.state = u0+(1./3).*k1;
             eqtemp(e,e.tau_s);  %update surface temp
-            k2 = dynamics(e);   
+            k2 = r.step.*dynamics(e);   
 
             %interpolate and prescribe forcings 
-            e.mu = carbon(1)+(2./3).*(carbon(2)-carbon(1));
-            e.nu = methane(1)+(2./3).*(methane(2)-methane(1));
-            e.F_O = r.FO_arr(1)+(2./3).*(r.FO_arr(2)-r.FO_arr(1));
-            e.F_A = r.FA_arr(1)+(2./3).*(r.FA_arr(2)-r.FA_arr(1));
+            e.mu = interpCO2(tracking_var)+(2./3).*(interpCO2(tracking_var+r.step)-interpCO2(tracking_var));
+            e.nu = interpCH4(tracking_var)+(2./3).*(interpCH4(tracking_var+r.step)-interpCH4(tracking_var));
+            e.F_O = interpFO(tracking_var)+(2./3).*(interpFO(tracking_var+r.step)-interpFO(tracking_var));
+            e.F_A = interpFA(tracking_var)+(2./3).*(interpFA(tracking_var+r.step)-interpFA(tracking_var));
             e.state = u0+(2./3).*k2;
             eqtemp(e,e.tau_s);  %update surface temp
-            k3 = dynamics(e);
+            k3 = r.step.*dynamics(e);
 
             %combine 
             e.state = u0+(1./4).*k1+(3./4).*k3;
@@ -85,41 +101,44 @@ classdef rcpsim < handle
 
             %     SECOND ITERATION
             % ------------------------
-            e.mu = carbon(2);
-            e.nu = methane(2);
-            e.F_O = r.FO_arr(2);
-            e.F_A = r.FA_arr(2);
+            tracking_var = tracking_var + r.step;
+            
+            e.mu = interpCO2(tracking_var);
+            e.nu = interpCH4(tracking_var);
+            e.F_O = interpFO(tracking_var);
+            e.F_A = interpFA(tracking_var);
             u1 = e.state;
-            eqtemp(e,e.tau_s);  %update surface temp
+            eqtemp(e,e.tau_s);  
             tau_s(2) = e.tau_s;
-            k1 = dynamics(e);
+            k1 = r.step.*dynamics(e);
 
-            %interpolate RCP projections and prescribe forcings 
-            e.mu = carbon(2)+(1./3).*(carbon(3)-carbon(2));
-            e.nu = methane(2)+(1./3).*(methane(3)-methane(2));
-            e.F_O = r.FO_arr(2)+(1./3).*(r.FO_arr(3)-r.FO_arr(2));
-            e.F_A = r.FA_arr(2)+(1./3).*(r.FA_arr(3)-r.FA_arr(2));
+            e.mu = interpCO2(tracking_var)+(1./3).*(interpCO2(tracking_var+r.step)-interpCO2(tracking_var));
+            e.nu = interpCH4(tracking_var)+(1./3).*(interpCH4(tracking_var+r.step)-interpCH4(tracking_var));
+            e.F_O = interpFO(tracking_var)+(1./3).*(interpFO(tracking_var+r.step)-interpFO(tracking_var));
+            e.F_A = interpFA(tracking_var)+(1./3).*(interpFA(tracking_var+r.step)-interpFA(tracking_var));
             e.state = u1+(1./3).*k1;
-            eqtemp(e,e.tau_s);  %update surface temp
-            k2 = dynamics(e);   
+            eqtemp(e,e.tau_s); 
+            k2 = r.step.*dynamics(e);   
 
-            %interpolate and prescribe forcings 
-            e.mu = carbon(2)+(2./3).*(carbon(3)-carbon(2));
-            e.nu = methane(2)+(2./3).*(methane(3)-methane(2));
-            e.F_O = r.FO_arr(2)+(2./3).*(r.FO_arr(3)-r.FO_arr(2));
-            e.F_A = r.FA_arr(2)+(2./3).*(r.FA_arr(3)-r.FA_arr(2));
+            e.mu = interpCO2(tracking_var)+(2./3).*(interpCO2(tracking_var+r.step)-interpCO2(tracking_var));
+            e.nu = interpCH4(tracking_var)+(2./3).*(interpCH4(tracking_var+r.step)-interpCH4(tracking_var));
+            e.F_O = interpFO(tracking_var)+(2./3).*(interpFO(tracking_var+r.step)-interpFO(tracking_var));
+            e.F_A = interpFA(tracking_var)+(2./3).*(interpFA(tracking_var+r.step)-interpFA(tracking_var));
             e.state = u1+(2./3).*k2;
-            eqtemp(e,e.tau_s);  %update surface temp
-            k3 = dynamics(e);
+            eqtemp(e,e.tau_s); 
+            k3 = r.step.*dynamics(e);
 
             %combine 
             e.state = u1+(1./4).*k1+(3./4).*k3;
 
+            
             %get final info for AB3 compatability
-            e.mu = carbon(3);
-            e.nu = methane(3);
-            e.F_O = r.FO_arr(3);
-            e.F_A = r.FA_arr(3);
+            tracking_var = tracking_var + r.step;
+            
+            e.mu = interpCO2(tracking_var);
+            e.nu = interpCH4(tracking_var);
+            e.F_O = interpFO(tracking_var);
+            e.F_A = interpFA(tracking_var);
             u2 = e.state;
             eqtemp(e,e.tau_s);  %update surface temp
             tau_s(3) = e.tau_s;
@@ -128,29 +147,37 @@ classdef rcpsim < handle
             states(2,:) = u1;
             states(3,:) = u2;
             state_derivatives(2,:) = k1;
-            state_derivatives(3,:) = dynamics(e);
+            state_derivatives(3,:) = r.step.*dynamics(e);
 
             %from this we obtain first three: surface temps, states, state derivatives
 
-            %AB3
+            
+            %---------------------------AB3-----------------------------%
             %general function for ab3 step process
             AB3 = @(u_i, f_arr) u_i + (1./12).*(23.*f_arr(3,:) - 16.*f_arr(2,:) + 5.*f_arr(1,:));
+            
 
-            for i = 1:length(carbon)-3
+            tracking_var = tracking_var + r.step;
+            while tracking_var<length(carbon) %find index before this 
+               
                 %compute state using ab3 method
                 e.state = AB3(states(end,:), state_derivatives(end-2:end, :));
                 states(end+1,:) = e.state;
+
                 %apply forcings 
-                e.mu = carbon(3+i);
-                e.nu = methane(3+i);
-                e.F_O = r.FO_arr(3+i);
-                e.F_A = r.FA_arr(3+i);
+                e.mu = interpCO2(tracking_var);
+                e.nu = interpCH4(tracking_var);
+                e.F_O = interpFO(tracking_var);
+                e.F_A = interpFA(tracking_var);
+
                 %solve and store tau_s
                 eqtemp(e,e.tau_s);
                 tau_s(end+1) = e.tau_s;
                 %compute dynamics
-                state_derivatives(end+1,:) = dynamics(e);
+                state_derivatives(end+1,:) = r.step.*dynamics(e);
 
+                tracking_var = tracking_var + r.step;
+                
                 %{  
                 Block for looking for bifurcations, spike in error 
                 [sol, err, flag] = fsolve(@(t) ebm.eq_implicit(t, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta),tau_s(end-1));
@@ -159,10 +186,58 @@ classdef rcpsim < handle
                 flags(i) = flag;
                 %}
             end
+
             tauseries = tau_s;
         end 
-        
-        %TODO: add option for euler method 
+        function tauseries = eulerPermafrost(r, carbon, methane)
+            clear state;
+            clear state_derivatives;
+            clear tau_s;
+            clear e; 
+            
+            e = copy(r.ebm);
+            x0=0.9;
+            
+            %interpolation stuff for variable step size, small decimal
+            %handles NaN exception when x is an int
+            interpCO2 = @(x) carbon(floor(x)) + (x - floor(x)).*(carbon(ceil(x)) - carbon(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            interpCH4 = @(x) methane(floor(x)) + (x - floor(x)).*(methane(ceil(x)) - methane(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            interpFO = @(x) r.FO_arr(floor(x)) + (x - floor(x)).*(r.FO_arr(ceil(x)) - r.FO_arr(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            interpFA = @(x) r.FA_arr(floor(x)) + (x - floor(x)).*(r.FA_arr(ceil(x)) - r.FA_arr(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            
+            tracking_var = 1;
+            
+            e.mu = interpCO2(tracking_var);
+            e.nu = interpCH4(tracking_var);
+            e.F_O = interpFO(tracking_var);
+            e.F_A = interpFA(tracking_var);
+            
+            %solve and store tau_s
+            eqtemp(e,x0);
+            tau_s(1) = e.tau_s;
+            %update state
+            e.state = e.state + r.step.*dynamics(e);
+
+            tracking_var = tracking_var + r.step;
+            while tracking_var<length(carbon)
+                
+                %apply forcings 
+                e.mu = interpCO2(tracking_var+r.step);
+                e.nu = interpCH4(tracking_var+r.step);
+                e.F_O = interpFO(tracking_var+r.step);
+                e.F_A = interpFA(tracking_var+r.step);
+                
+                %solve and store tau_s
+                eqtemp(e,e.tau_s);
+                tau_s(end+1) = e.tau_s;
+                %update state
+                e.state = e.state + r.step.*dynamics(e);
+                
+                tracking_var = tracking_var + r.step;
+            end
+            tauseries = tau_s;
+        end 
+        %no permafrost, iterate through forcings time-series data 
         function tauseries = NoPermafrost(r, carbon, methane)
             clear tau_s;
             clear e; 
@@ -198,5 +273,156 @@ classdef rcpsim < handle
             end
             tauseries = tau_s;
         end 
+        
+        %returns temps, states and dynamics
+        function info = rk3ab3INFO(r, carbon, methane)
+            clear state;
+            clear state_derivatives;
+            clear tau_s;
+            clear e; 
+            
+            e = copy(r.ebm);
+            x0=0.9;
+            
+            %interpolation stuff for variable step size, small decimal
+            %handles NaN exception when x is an int
+            interpCO2 = @(x) carbon(floor(x)) + (x - floor(x)).*(carbon(ceil(x)) - carbon(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            interpCH4 = @(x) methane(floor(x)) + (x - floor(x)).*(methane(ceil(x)) - methane(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            interpFO = @(x) r.FO_arr(floor(x)) + (x - floor(x)).*(r.FO_arr(ceil(x)) - r.FO_arr(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            interpFA = @(x) r.FA_arr(floor(x)) + (x - floor(x)).*(r.FA_arr(ceil(x)) - r.FA_arr(floor(x)))./((ceil(x)+0.000001)-floor(x));
+            
+
+            %---------------------- RK3 ---------------------------%
+            %     FIRST ITERATION
+            % ------------------------
+            tracking_var = 1;
+            
+            %initial RCP forcings, also prescribe FO and FA
+            e.mu = interpCO2(tracking_var);
+            e.nu = interpCH4(tracking_var);
+            e.F_O = interpFO(tracking_var);
+            e.F_A = interpFA(tracking_var);
+            eqtemp(e,x0);  %internal update to compute tau_s 
+            tau_s(1) = e.tau_s;
+            u0 = e.state;
+            k1 = r.step.*dynamics(e);
+
+            %interpolate RCP projections and prescribe forcings 
+            e.mu = interpCO2(tracking_var)+(1./3).*(interpCO2(tracking_var+r.step)-interpCO2(tracking_var));
+            e.nu = interpCH4(tracking_var)+(1./3).*(interpCH4(tracking_var+r.step)-interpCH4(tracking_var));
+            e.F_O = interpFO(tracking_var)+(1./3).*(interpFO(tracking_var+r.step)-interpFO(tracking_var));
+            e.F_A = interpFA(tracking_var)+(1./3).*(interpFA(tracking_var+r.step)-interpFA(tracking_var));
+            e.state = u0+(1./3).*k1;
+            eqtemp(e,e.tau_s);  %update surface temp
+            k2 = r.step.*dynamics(e);   
+
+            %interpolate and prescribe forcings 
+            e.mu = interpCO2(tracking_var)+(2./3).*(interpCO2(tracking_var+r.step)-interpCO2(tracking_var));
+            e.nu = interpCH4(tracking_var)+(2./3).*(interpCH4(tracking_var+r.step)-interpCH4(tracking_var));
+            e.F_O = interpFO(tracking_var)+(2./3).*(interpFO(tracking_var+r.step)-interpFO(tracking_var));
+            e.F_A = interpFA(tracking_var)+(2./3).*(interpFA(tracking_var+r.step)-interpFA(tracking_var));
+            e.state = u0+(2./3).*k2;
+            eqtemp(e,e.tau_s);  %update surface temp
+            k3 = r.step.*dynamics(e);
+
+            %combine 
+            e.state = u0+(1./4).*k1+(3./4).*k3;
+
+            %store dynamics and states for AB3
+            states(1,:) = u0;
+            state_derivatives(1,:) = k1;
+
+            %     SECOND ITERATION
+            % ------------------------
+            tracking_var = tracking_var + r.step;
+            
+            e.mu = interpCO2(tracking_var);
+            e.nu = interpCH4(tracking_var);
+            e.F_O = interpFO(tracking_var);
+            e.F_A = interpFA(tracking_var);
+            u1 = e.state;
+            eqtemp(e,e.tau_s);  
+            tau_s(2) = e.tau_s;
+            k1 = r.step.*dynamics(e);
+
+            e.mu = interpCO2(tracking_var)+(1./3).*(interpCO2(tracking_var+r.step)-interpCO2(tracking_var));
+            e.nu = interpCH4(tracking_var)+(1./3).*(interpCH4(tracking_var+r.step)-interpCH4(tracking_var));
+            e.F_O = interpFO(tracking_var)+(1./3).*(interpFO(tracking_var+r.step)-interpFO(tracking_var));
+            e.F_A = interpFA(tracking_var)+(1./3).*(interpFA(tracking_var+r.step)-interpFA(tracking_var));
+            e.state = u1+(1./3).*k1;
+            eqtemp(e,e.tau_s); 
+            k2 = r.step.*dynamics(e);   
+
+            e.mu = interpCO2(tracking_var)+(2./3).*(interpCO2(tracking_var+r.step)-interpCO2(tracking_var));
+            e.nu = interpCH4(tracking_var)+(2./3).*(interpCH4(tracking_var+r.step)-interpCH4(tracking_var));
+            e.F_O = interpFO(tracking_var)+(2./3).*(interpFO(tracking_var+r.step)-interpFO(tracking_var));
+            e.F_A = interpFA(tracking_var)+(2./3).*(interpFA(tracking_var+r.step)-interpFA(tracking_var));
+            e.state = u1+(2./3).*k2;
+            eqtemp(e,e.tau_s); 
+            k3 = r.step.*dynamics(e);
+
+            %combine 
+            e.state = u1+(1./4).*k1+(3./4).*k3;
+
+            
+            %get final info for AB3 compatability
+            tracking_var = tracking_var + r.step;
+            
+            e.mu = interpCO2(tracking_var);
+            e.nu = interpCH4(tracking_var);
+            e.F_O = interpFO(tracking_var);
+            e.F_A = interpFA(tracking_var);
+            u2 = e.state;
+            eqtemp(e,e.tau_s);  %update surface temp
+            tau_s(3) = e.tau_s;
+
+            %store dynamics and states for AB3
+            states(2,:) = u1;
+            states(3,:) = u2;
+            state_derivatives(2,:) = k1;
+            state_derivatives(3,:) = r.step.*dynamics(e);
+
+            %from this we obtain first three: surface temps, states, state derivatives
+
+            
+            %---------------------------AB3-----------------------------%
+            %general function for ab3 step process
+            AB3 = @(u_i, f_arr) u_i + (1./12).*(23.*f_arr(3,:) - 16.*f_arr(2,:) + 5.*f_arr(1,:));
+            
+            tracking_var = tracking_var + r.step;
+            while tracking_var<length(carbon) %find index before this 
+
+                %compute state using ab3 method
+                e.state = AB3(states(end,:), state_derivatives(end-2:end, :));
+                states(end+1,:) = e.state;
+
+                %apply forcings 
+                e.mu = interpCO2(tracking_var);
+                e.nu = interpCH4(tracking_var);
+                e.F_O = interpFO(tracking_var);
+                e.F_A = interpFA(tracking_var);
+
+                %solve and store tau_s
+                eqtemp(e,e.tau_s);
+                tau_s(end+1) = e.tau_s;
+                %compute dynamics
+                state_derivatives(end+1,:) = r.step.*dynamics(e);
+                
+                tracking_var = tracking_var + r.step;
+
+                %{  
+                Block for looking for bifurcations, spike in error 
+                [sol, err, flag] = fsolve(@(t) ebm.eq_implicit(t, e.F_O, e.F_A, e.Q, e.mu, e.nu, e.delta),tau_s(end-1));
+                sols(i) = sol;
+                error(i) = err;
+                flags(i) = flag;
+                %}
+            end
+
+            info = {tau_s, states, state_derivatives};
+            
+        end 
+        
+        
     end    
 end 
