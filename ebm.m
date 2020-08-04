@@ -167,7 +167,7 @@ classdef ebm < matlab.mixin.Copyable
             rate_co2 = @(t) (constants.gammaA_ms.*ratescale_a_ms(t) + constants.gammaS_ms.*ratescale_s_ms(t)).*constants.fms.*((1-constants.A_msan)+ constants.R_ana.*constants.A_msan.*constants.chi_ms)+(constants.gammaA_o.*ratescale_a_o(t) + constants.gammaS_o.*ratescale_s_o(t)).*constants.fo.*((1-constants.A_oan)+ constants.R_ana.*constants.A_oan.*constants.chi_o);
             %account for seasonality over a year
             months = linspace(0,11,12);
-            deltaT = 12;
+            deltaT = 13;
             for i=1:12
                 if T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11) > 0
                     rates(i) = rate_co2(T+(1-zeta).*deltaT.*sin(months(i)*2*pi./12));
@@ -187,7 +187,7 @@ classdef ebm < matlab.mixin.Copyable
             rate_ch4 = @(t) (constants.gammaA_ms.*ratescale_a_ms(t) + constants.gammaS_ms.*ratescale_s_ms(t)).*constants.R_ana.*constants.fms.*constants.A_msan.*(1-constants.chi_ms) + (constants.gammaA_o.*ratescale_a_o(t) + constants.gammaS_o.*ratescale_s_o(t)).*constants.R_ana.*constants.fo.*constants.A_oan.*(1-constants.chi_o);
             %account for seasonality over a year
             months = linspace(0,11,12);
-            deltaT = 12;
+            deltaT = 13;
             for i=1:11
                 if T+(1-zeta).*deltaT.*sin(months(i)*2*pi./11) > 0
                     rates(i) = rate_ch4(T+(1-zeta).*deltaT.*sin(months(i)*2*pi./12));
