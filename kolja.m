@@ -24,7 +24,7 @@ FAref = 104.03;
 
 maxvalFO = @(y) (y - 2.6).*(19.5 - 13)./(8.5 - 2.6) + 13;
 %maxvalFA = @(y) (y - 2.6).*(97.53 - 104.03)./(8.5 - 2.6) + 104.03;
-maxvalFA = @(y) 129;
+maxvalFA = @(y) 125;
 
 %gonna have to do this 4 times...
 linFO26 = @(x) 9.75 + (x-1900).*(maxvalFO(2.6)-9.75)./(2100-1900);
@@ -64,10 +64,10 @@ FA_arr60 = [FA60 maxvalFA(6.0).*ones([1 length(times)-length(FA26)])];
 FO_arr85 = [FO85 maxvalFO(8.5).*ones([1 length(times)-length(FO26)])];
 FA_arr85 = [FA85 maxvalFA(8.5).*ones([1 length(times)-length(FA26)])];
 %% overwrite FA arrays to constant 
-FA_arr26 = 104.03*ones([1 length(times)]);
-FA_arr45 = 104.03*ones([1 length(times)]);
-FA_arr60 = 104.03*ones([1 length(times)]);
-FA_arr85 = 104.03*ones([1 length(times)]);
+FA_arr26 = 116*ones([1 length(times)]);
+FA_arr45 = 116.03*ones([1 length(times)]);
+FA_arr60 = 116.03*ones([1 length(times)]);
+FA_arr85 = 116.03*ones([1 length(times)]);
 %% overwrite FO to constant 
 FO_arr26 = 10*ones([1 length(times)]);
 FO_arr45 = 10*ones([1 length(times)]);
@@ -76,7 +76,7 @@ FO_arr85 = 10*ones([1 length(times)]);
 
 %% Information provided by Langford, year 2000
 R1 = 0.19.*10^12;  %kg a^-1
-mu2 = 76.5;    %ppm
+mu2 = 0;    %ppm
 
 tau_ref = 0.8934;
 mass_atm = 8.6454e+18;  %kg
@@ -88,8 +88,8 @@ MCH4 = 16.04.*10^-3;    %kg mol^-1
 k_CH4 = log(2)./9.1;    %decay rate of ch4
 
 %define the dynamics for use in difference equations 
-murate = @(tau) 10.^6.*(MA./MCO2).*(Q10(R1,tau_ref,tau,1.5).*fCO2)./mass_atm;
-nurate = @(tau,nu2) 10.^9.*(MA./MCH4).*(Q10(R1,tau_ref,tau,1.5).*fCH4)./mass_atm - k_CH4.*nu2;
+murate = @(tau) 10.^6.*(MA./MCO2).*(Q10(R1,tau_ref,tau,4.5).*fCO2)./mass_atm;
+nurate = @(tau,nu2) 10.^9.*(MA./MCH4).*(Q10(R1,tau_ref,tau,4.5).*fCH4)./mass_atm - k_CH4.*nu2;
 
 %we don't currently know how much permafrost CH4 is in atmosphere in year
 %2000.  So I'll just set this value to zero for the time being 
@@ -103,7 +103,7 @@ mu_2(1) = mu2;  %mu2 is initial CO2 burden from permafrost in the year 2000
 nu_2(1) = nu2;  %nu2 is initial CH4 burden from permafrost in the year 2000
 
 %variables to store RCP data
-mu_1 = CO226data(236:end)-mu2;   %year 2000 values and onwards
+mu_1 = CO226data(236:end);   %year 2000 values and onwards
 nu_1 = CH426data(236:end);
 
 %compute first step so we can change x0 in solver dynamically
@@ -129,7 +129,7 @@ nu_2(1) = nu2;  %nu2 is initial CH4 burden from permafrost in the year 2000
 
 %RCP 4.5
 %variables to store RCP data
-mu_1 = CO245data(236:end)-mu2;   %year 2000 values and onwards
+mu_1 = CO245data(236:end);   %year 2000 values and onwards
 nu_1 = CH445data(236:end);
 
 %initialize array for equilibrium temps 
@@ -156,7 +156,7 @@ nu_2(1) = nu2;  %nu2 is initial CH4 burden from permafrost in the year 2000
 
 %RCP 6.0
 %variables to store RCP data
-mu_1 = CO260data(236:end)-mu2;   %year 2000 values and onwards
+mu_1 = CO260data(236:end);   %year 2000 values and onwards
 nu_1 = CH460data(236:end);
 
 %initialize array for equilibrium temps 
@@ -183,7 +183,7 @@ nu_2(1) = nu2;  %nu2 is initial CH4 burden from permafrost in the year 2000
 
 %RCP 8.5
 %variables to store RCP data
-mu_1 = CO285data(236:end)-mu2;   %year 2000 values and onwards
+mu_1 = CO285data(236:end);   %year 2000 values and onwards
 nu_1 = CH485data(236:end);
 
 %initialize array for equilibrium temps 
@@ -201,8 +201,8 @@ for i = 2:length(mu_1)    %iterate over RCP starting in 2000
     nu_2(end+1) = nu_2(end) + nurate(tau85(end), nu_2(end));
 end 
 %% bifurcation diagrams w/o permafrost
-mu_1 = CO285data(236:end);   %year 2000 values and onwards
-nu_1 = CH485data(236:end);
+mu_1 = CO226data(236:end);   %year 2000 values and onwards
+nu_1 = CH426data(236:end);
 
 tau26C(1) = equilibrium(FO_arr26(1), FA_arr26(1), mu_1(1), nu_1(1), 0.6, 0.9);
 
@@ -210,8 +210,8 @@ for i = 2:length(mu_1)    %iterate over RCP starting in 2000
     tau26C(end+1) = equilibrium(FO_arr26(i), FA_arr26(i), mu_1(i), nu_1(i), 0.6, tau26C(end));
 end 
 
-mu_1 = CO285data(236:end);   %year 2000 values and onwards
-nu_1 = CH485data(236:end);
+mu_1 = CO245data(236:end);   %year 2000 values and onwards
+nu_1 = CH445data(236:end);
 
 tau45C(1) = equilibrium(FO_arr45(1), FA_arr45(1), mu_1(1), nu_1(1), 0.6, 0.9);
 
@@ -250,7 +250,7 @@ nu_2(1) = nu2;  %nu2 is initial CH4 burden from permafrost in the year 2000
 
 %RCP 6.0
 %variables to store RCP data
-mu_1 = CO260data(236:end)-mu2;   %year 2000 values and onwards
+mu_1 = CO260data(236:end);   %year 2000 values and onwards
 nu_1 = CH460data(236:end);
 
 %initialize array for equilibrium temps 
@@ -278,7 +278,7 @@ nu_2(1) = nu2;  %nu2 is initial CH4 burden from permafrost in the year 2000
 
 %RCP 6.0
 %variables to store RCP data
-mu_1 = CO260data(236:end)-mu2;   %year 2000 values and onwards
+mu_1 = CO260data(236:end);   %year 2000 values and onwards
 nu_1 = CH460data(236:end);
 
 %initialize array for equilibrium temps 
@@ -306,7 +306,7 @@ nu_2(1) = nu2;  %nu2 is initial CH4 burden from permafrost in the year 2000
 
 %RCP 6.0
 %variables to store RCP data
-mu_1 = CO260data(236:end)-mu2;   %year 2000 values and onwards
+mu_1 = CO260data(236:end);   %year 2000 values and onwards
 nu_1 = CH460data(236:end);
 
 %initialize array for equilibrium temps 
@@ -356,22 +356,22 @@ end
 t = linspace(2000, 2000+length(tau85), length(tau85));
 
 %permafrost curves 
-plot(t, (tau26 - tau26(1)).*273.15 - 273.15, 'Color', [0 1 0], 'linewidth', 1, 'DisplayName', 'RCP 2.6');
+plot(t, (tau85 - tau85(1)).*273.15, 'Color', [1 0 0], 'linewidth', 1.6, 'DisplayName', 'RCP 8.5');
 hold on
-plot(t, (tau45 - tau45(1)).*273.15 - 273.15, 'Color', [0 1 1], 'linewidth', 1, 'DisplayName', 'RCP 4.5');
-plot(t, (tau60 - tau60(1)).*273.15 - 273.15, 'Color', [1 0 0], 'linewidth', 1, 'DisplayName', 'RCP 6.0');
-plot(t, (tau85 - tau85(1)).*273.15 - 273.15, 'Color', [0 0 1], 'linewidth', 1, 'DisplayName', 'RCP 8.5');
+plot(t, (tau60 - tau60(1)).*273.15, 'Color', [1 0.5 0], 'linewidth', 1.6, 'DisplayName', 'RCP 6.0');
+plot(t, (tau45 - tau45(1)).*273.15, 'Color', [0 1 1], 'linewidth', 1.6, 'DisplayName', 'RCP 4.5');
+plot(t, (tau26 - tau26(1)).*273.15, 'Color', [1 0 1], 'linewidth', 1.6, 'DisplayName', 'RCP 2.6');
+l = yline(0);
+l.HandleVisibility = "off";
+l.LineStyle = "--";
 legend;
-plot(t, (tau26C - tau26C(1)).*273.15 - 273.15, 'Color', [0 0 0 0.2], 'linewidth', 1);
-plot(t, (tau45C - tau45C(1)).*273.15 - 273.15, 'Color', [0 0 0 0.2], 'linewidth', 1);
-plot(t, (tau60C - tau60C(1)).*273.15 - 273.15, 'Color', [0 0 0 0.2], 'linewidth', 1);
-plot(t, (tau85C - tau85C(1)).*273.15 - 273.15, 'Color', [0 0 0 0.2], 'linewidth', 1);
 
-
-xlim([2000, 2300])
+ax = gca;
+ax.FontSize = 15;
+box("off")
+xlim([2000, 2500])
 xlabel('Year')
-ylabel('Surface Temperature [C]')
-title('Arctic Climate Simulation')
+ylabel('Temperature Change [C]')
 legend;
 %% fUNCTIONs
 equilibrium(10, 104, CO260data(2000-1764), CH460data(2000-1764), 0.6, 0.9)
@@ -386,9 +386,9 @@ sigma = 5.670367*10^-8;                         % W/(m^2K^4)            % Stefan
 omega = 0.01;                                   % nondimensional        % albedo switch function smoothness
 Gamma = 6.49*10^-3;                             % K/m                   % standard ICAO lapse rate for the troposphere
 gamma = Gamma/T_R;                              % 1/m                   % scaled lapse rate for non-dimensional system
-k_C = 0.0694;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for carbon dioxide
-k_W = 0.05905;                                  % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
-k_M = 1.4022;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for methane                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
+k_C = 0.0767;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for carbon dioxide
+k_W = 0.0612;                                % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
+k_M = 1.5087;                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for methane                                   % m^2/kg                % absorption cross-section per unit mass of atmosphere for water vapour
 Z_P = 9000;                                     % m                     % troposphere height      
 L_v = 2.2558*10^6;                              % m^2/s^2               % latent heat of vapourization for water
 R = 8.3144598;                                  % J/(mol K)             % universal gas constant
@@ -427,7 +427,7 @@ f_C = F_C./(sigma.*T_R.^4);                     % nondimensional        % scaled
 % albedo switch function (nondimensional)
 a = 1./2.*((alpha_w + alpha_c)+(alpha_w-alpha_c).*tanh((tau-1)./omega));    
 
-eta_Cl = 0.3736;                               
+eta_Cl = 0.3739;                               
 G_c = 1.52./(10.^6).*k_C.*1.03.*10.^4;         
 eta_C1 = 1 - exp(-G_c.*mu);                           
 G_M = 0.554./(10.^9).*k_M.*1.03.*10.^4;

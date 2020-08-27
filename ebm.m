@@ -85,7 +85,7 @@ classdef ebm < matlab.mixin.Copyable
         end  
     end 
     
-    methods (Static, Access=private)
+    methods (Static)
         %generic functions
         function F = eq_implicit(tau, F_O, F_A, Q, mu, nu, delta)
             T_S = tau*constants.T_R;                             

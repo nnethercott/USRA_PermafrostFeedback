@@ -61,7 +61,9 @@ classdef constants
         Q10_a = 2.5; %Q10 sensitivity aerobic
         Q10_an = 3; %Q10 sensitivity anaerobic
         
-        decay_CH4 = log(2)./9.1;
+        deltaT = 13;
+        
+        decay_CH4 = log(2)./4.2;
         
         MCO2 = 44.01e-3;   %Molar masses of CO2, CH4 and C kg mol^-1
         MCH4 = 16.04e-3;
